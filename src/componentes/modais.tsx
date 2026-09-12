@@ -217,7 +217,12 @@ export function ModalConta({
           <button className="secundario" onClick={pagar} disabled={enviando}>
             Registrar pagamento
           </button>
-          <button className="principal" onClick={encerrar} disabled={enviando || falta > 0.009}>
+          <button
+            className="principal"
+            onClick={encerrar}
+            disabled={enviando || falta > 0.009}
+            title={falta > 0.009 ? "Registre o pagamento do valor que falta antes de encerrar" : undefined}
+          >
             Encerrar mesa
           </button>
         </div>

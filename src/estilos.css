@@ -108,6 +108,7 @@ main{padding-bottom:104px}
 .formas button[aria-pressed="true"]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
 .acoes{display:flex;gap:10px;margin-top:16px}
 .acoes button{flex:1;padding:13px;border-radius:10px;font-size:15px;font-weight:700}
+.acoes button:disabled{opacity:.42;cursor:not-allowed}
 .principal{background:var(--tinta);color:var(--papel)}
 .perigo{background:var(--vermelho);color:#fff}
 .secundario{border:1px solid rgba(42,36,29,.3);color:var(--tinta)}
@@ -161,9 +162,9 @@ main{padding-bottom:104px}
 .linha-cancelamento:last-child{border-bottom:0}
 .linha-cancelamento .linha{border-bottom:0;padding:0}
 
-.acoes button.principal{background:var(--dourado);color:#231A06}
-.acoes button.secundario{border:1px solid rgba(244,237,223,.25);color:var(--espuma)}
-.acoes button.perigo{background:var(--vermelho);color:#fff}
+.painel .acoes button.principal{background:var(--dourado);color:#231A06}
+.painel .acoes button.secundario{border:1px solid rgba(244,237,223,.25);color:var(--espuma)}
+.painel .acoes button.perigo{background:var(--vermelho);color:#fff}
 
 /* login */
 .login{width:min(380px,100%);margin:0 auto;padding:60px 20px}
