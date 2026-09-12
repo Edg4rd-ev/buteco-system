@@ -1,0 +1,227 @@
+import { useState } from "react";
+import {
+  dinheiro,
+  fecharComanda,
+  registrarPagamento,
+  type FormaPagamento,
+  type Lancamento,
+} from "../lib/api";
+
+/* ------------------------------------------------------------------
+   PIN — cancelar lançamento já gravado.
+   O dono está a três metros; ele digita o PIN no aparelho do garçom.
+   Nada de aprovação assíncrona travando o atendimento.
+------------------------------------------------------------------ */
+export function ModalPin({
+  nomeItem,
+  onConfirmar,
+  onFechar,
+}: {
+  nomeItem: string;
+  onConfirmar: (motivo: string, pin: string) => Promise<void>;
+  onFechar: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [pin, setPin] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function confirmar() {
+    setErro(null);
+    if (!motivo.trim()) return setErro("Diga o motivo do cancelamento.");
+    if (!pin.trim()) return setErro("Falta o PIN de autorização.");
+
+    setEnviando(true);
+    try {
+      await onConfirmar(motivo.trim(), pin);
+      onFechar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível cancelar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="fundo" onClick={onFechar} />
+      <div className="caixa">
+        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        <h3>Cancelar {nomeItem}</h3>
+        <p className="dica">
+          O item já foi lançado. Cancelar exige autorização do dono ou gerente —
+          e fica registrado com o nome de quem autorizou.
+        </p>
+
+        <label htmlFor="motivo">Motivo</label>
+        <input
+          id="motivo"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          placeholder="cliente desistiu, item errado…"
+        />
+
+        <label htmlFor="pin">PIN do dono ou gerente</label>
+        <input
+          id="pin"
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          placeholder="••••"
+        />
+
+        {erro && <p className="erro">{erro}</p>}
+
+        <div className="acoes">
+          <button className="secundario" onClick={onFechar}>Voltar</button>
+          <button className="perigo" onClick={confirmar} disabled={enviando}>
+            {enviando ? "Cancelando…" : "Cancelar item"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Conta — aceita pagamento parcial: quem sai antes paga a parte dele
+   e a mesa continua aberta.
+------------------------------------------------------------------ */
+const FORMAS: { id: FormaPagamento; rotulo: string }[] = [
+  { id: "pix", rotulo: "Pix" },
+  { id: "debito", rotulo: "Débito" },
+  { id: "credito", rotulo: "Crédito" },
+  { id: "dinheiro", rotulo: "Dinheiro" },
+];
+
+export function ModalConta({
+  comandaId,
+  lancamentos,
+  total,
+  pago,
+  onMudou,
+  onFechou,
+  onFechar,
+}: {
+  comandaId: number;
+  lancamentos: Lancamento[];
+  total: number;
+  pago: number;
+  onMudou: () => void;
+  onFechou: () => void;
+  onFechar: () => void;
+}) {
+  const falta = Math.max(total - pago, 0);
+  const [forma, setForma] = useState<FormaPagamento>("pix");
+  const [valor, setValor] = useState(falta.toFixed(2));
+  const [pessoas, setPessoas] = useState(1);
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  const agrupado = new Map<string, { nome: string; q: number; v: number }>();
+  for (const l of lancamentos) {
+    const a = agrupado.get(l.nome_produto) ?? { nome: l.nome_produto, q: 0, v: 0 };
+    a.q += l.quantidade;
+    a.v += l.quantidade * Number(l.preco_unitario);
+    agrupado.set(l.nome_produto, a);
+  }
+
+  async function pagar() {
+    setErro(null);
+    const v = Number(valor.replace(",", "."));
+    if (!v || v <= 0) return setErro("Informe o valor recebido.");
+
+    setEnviando(true);
+    try {
+      await registrarPagamento(comandaId, forma, v);
+      onMudou();
+      setValor("0");
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível registrar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function encerrar() {
+    setErro(null);
+    setEnviando(true);
+    try {
+      await fecharComanda(comandaId);
+      onFechou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível fechar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="fundo" onClick={onFechar} />
+      <div className="caixa">
+        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        <h3>Conta da mesa</h3>
+        <p className="dica">Não cobramos 10% · pagamento pode ser parcial</p>
+
+        {[...agrupado.values()].map((a) => (
+          <div className="linha" key={a.nome}>
+            <span><span className="q">{a.q}×</span>{a.nome}</span>
+            <span className="v">{dinheiro(a.v)}</span>
+          </div>
+        ))}
+
+        <div className="soma"><span>Total</span><span className="num">{dinheiro(total)}</span></div>
+        {pago > 0 && (
+          <div className="soma" style={{ fontSize: 18, color: "var(--tinta-fraca)" }}>
+            <span>Já pago</span><span className="num">{dinheiro(pago)}</span>
+          </div>
+        )}
+        <div className="soma" style={{ fontSize: 20, color: "var(--madeira)" }}>
+          <span>Falta</span><span className="num">{dinheiro(falta)}</span>
+        </div>
+
+        <label>Dividir por {pessoas} → {dinheiro(falta / pessoas)} cada</label>
+        <div className="formas">
+          <button onClick={() => setPessoas(Math.max(1, pessoas - 1))}>−</button>
+          <button disabled style={{ opacity: 1 }}>{pessoas}</button>
+          <button onClick={() => setPessoas(pessoas + 1)}>+</button>
+          <button onClick={() => setValor((falta / pessoas).toFixed(2))}>usar</button>
+        </div>
+
+        <label htmlFor="valor">Valor recebido</label>
+        <input
+          id="valor"
+          inputMode="decimal"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+        />
+
+        <div className="formas">
+          {FORMAS.map((f) => (
+            <button
+              key={f.id}
+              aria-pressed={forma === f.id}
+              onClick={() => setForma(f.id)}
+            >
+              {f.rotulo}
+            </button>
+          ))}
+        </div>
+
+        {erro && <p className="erro">{erro}</p>}
+
+        <div className="acoes">
+          <button className="secundario" onClick={pagar} disabled={enviando}>
+            Registrar pagamento
+          </button>
+          <button className="principal" onClick={encerrar} disabled={enviando || falta > 0.009}>
+            Encerrar mesa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
