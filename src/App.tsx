@@ -4,6 +4,7 @@ import { buscarPerfil, supabase, type Perfil } from "./lib/api";
 import Login from "./paginas/Login";
 import Salao from "./paginas/Salao";
 import Comanda from "./paginas/Comanda";
+import Gestao from "./paginas/Gestao";
 
 export default function App() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -39,6 +40,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Salao perfil={perfil} />} />
         <Route path="/comanda/:id" element={<Comanda />} />
+        <Route
+          path="/gestao"
+          element={
+            perfil.papel === "dono" || perfil.papel === "gerente"
+              ? <Gestao perfil={perfil} />
+              : <Navigate to="/" replace />
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

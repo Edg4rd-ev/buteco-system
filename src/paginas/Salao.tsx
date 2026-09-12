@@ -71,6 +71,9 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
             Salão
             <span className="sub">{perfil.nome} · {perfil.papel}</span>
           </h1>
+          {(perfil.papel === "dono" || perfil.papel === "gerente") && (
+            <button className="botao-topo" onClick={() => navegar("/gestao")}>Gestão</button>
+          )}
           <button className="botao-topo" onClick={() => supabase.auth.signOut()}>Sair</button>
         </div>
         {!caixaAberto && (

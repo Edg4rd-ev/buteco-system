@@ -1,8 +1,7 @@
 # Buteco Seu Barba — comandas
 
-Sistema de comandas para bar. Esta entrega tem o **schema completo** e a
-**tela do garçom** funcionando. As telas de gestão e de produção entram depois,
-em cima do mesmo banco.
+Sistema de comandas para bar. Schema completo, tela do garçom e tela de
+gestão funcionando. Tela de produção entra depois, em cima do mesmo banco.
 
 ## O que já funciona
 
@@ -15,6 +14,17 @@ em cima do mesmo banco.
 - Item na fila (ainda não gravado) pode ser descartado sem PIN — nada foi para o banco
 - Produto marcado como "acabou" some da tela de todos na hora
 - Conta com pagamento parcial e por forma (Pix, débito, crédito, dinheiro)
+- **Gestão** (`/gestao`, acesso dono/gerente):
+  - **Caixa**: abrir turno (troco, evento, couvert), sangria/suprimento com
+    motivo obrigatório, conferência e fechamento do turno (bloqueado com
+    mesas abertas, mostra quais)
+  - **Cardápio**: CRUD de categorias e produtos por escrita direta (RLS),
+    toggle de disponibilidade em um toque, "remover" nunca apaga —
+    vira `ativo = false` para preservar histórico
+  - **Relatórios**: totais por forma de pagamento, ticket médio, mesas
+    atendidas, ranking de produtos, lista de cancelamentos (item, motivo,
+    quem cancelou, quem autorizou), export em texto (WhatsApp) e CSV
+  - **Equipe**: papel e ativo/inativo por pessoa, PIN de autorização próprio
 
 ## Rodando
 
@@ -97,7 +107,8 @@ Para testar o cancelamento, use o PIN `1234`.
 supabase/migrations/   schema, functions, RLS e seed do cardápio
 src/lib/api.ts         cliente, tipos e wrappers das RPCs
 src/lib/fila.ts        fila offline de lançamentos
-src/paginas/           Login, Salao, Comanda
+src/paginas/           Login, Salao, Comanda, Gestao
+src/paginas/gestao/    Caixa, Cardapio, Relatorios, Equipe
 src/componentes/       modais de PIN e de conta
 ```
 
@@ -115,9 +126,8 @@ src/componentes/       modais de PIN e de conta
 
 ## Próximos passos
 
-- Tela de gestão: cardápio, preços, disponibilidade, abertura/fechamento de caixa,
-  sangria e suprimento, relatório do turno
 - Tela de produção (chapa/cozinha) consumindo `v_producao`
 - Transferir e juntar mesas na UI (a function `transferir_lancamentos` já existe)
 - Reabrir comanda fechada — precisa de function própria com PIN, ainda não existe
-- Backup: export do turno no fechamento
+- PWA: instalar no celular do garçom, service worker
+- Comissão por garçom (dado já existe em `aberta_por` / `criado_por`)

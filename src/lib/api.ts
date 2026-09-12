@@ -68,6 +68,62 @@ export type Lancamento = {
   criado_por: string;
   criado_em: string;
   cancelado_em: string | null;
+  cancelado_por: string | null;
+  autorizado_por: string | null;
+  motivo_cancelamento: string | null;
+};
+
+export type TipoMovimento = "sangria" | "suprimento";
+
+export type SessaoCaixa = {
+  id: number;
+  aberta_em: string;
+  aberta_por: string;
+  troco_inicial: number;
+  evento: boolean;
+  couvert_valor: number;
+  fechada_em: string | null;
+  fechada_por: string | null;
+  valor_conferido: number | null;
+  observacao: string | null;
+};
+
+export type FechamentoSessao = {
+  sessao_id: number;
+  aberta_em: string;
+  fechada_em: string | null;
+  troco_inicial: number;
+  dinheiro: number;
+  pix: number;
+  debito: number;
+  credito: number;
+  total_recebido: number;
+  sangrias: number;
+  suprimentos: number;
+};
+
+export type MovimentoCaixa = {
+  id: number;
+  sessao_id: number;
+  tipo: TipoMovimento;
+  valor: number;
+  motivo: string | null;
+  criado_por: string;
+  criado_em: string;
+};
+
+export type VendaProduto = {
+  sessao_id: number;
+  produto_id: number;
+  nome_produto: string;
+  vendidos: number;
+  faturado: number;
+  cancelamentos: number;
+};
+
+export type ResumoSessao = {
+  comandas: number;
+  mesasAtendidas: number;
 };
 
 /* ---------------- leitura ---------------- */
@@ -103,6 +159,20 @@ export async function buscarCardapio() {
   };
 }
 
+/** Para a gestão: traz também categorias e produtos inativos, para reativar. */
+export async function buscarCardapioCompleto() {
+  const [cat, prod] = await Promise.all([
+    supabase.from("categorias").select("*").order("ordem"),
+    supabase.from("produtos").select("*").order("ordem"),
+  ]);
+  if (cat.error) throw cat.error;
+  if (prod.error) throw prod.error;
+  return {
+    categorias: (cat.data ?? []) as Categoria[],
+    produtos: (prod.data ?? []) as Produto[],
+  };
+}
+
 export async function buscarLancamentos(comandaId: number): Promise<Lancamento[]> {
   const { data, error } = await supabase
     .from("lancamentos")
@@ -118,6 +188,99 @@ export async function sessaoCaixaAberta(): Promise<boolean> {
   const { data, error } = await supabase.rpc("sessao_aberta");
   if (error) throw error;
   return data !== null;
+}
+
+export async function buscarSessaoAberta(): Promise<SessaoCaixa | null> {
+  const { data, error } = await supabase
+    .from("sessoes_caixa")
+    .select("*")
+    .is("fechada_em", null)
+    .maybeSingle();
+  if (error) throw error;
+  return data as SessaoCaixa | null;
+}
+
+export async function buscarSessoesRecentes(limite = 20): Promise<SessaoCaixa[]> {
+  const { data, error } = await supabase
+    .from("sessoes_caixa")
+    .select("*")
+    .order("aberta_em", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return (data ?? []) as SessaoCaixa[];
+}
+
+export async function buscarFechamentoSessao(sessaoId: number): Promise<FechamentoSessao | null> {
+  const { data, error } = await supabase
+    .from("v_fechamento_sessao")
+    .select("*")
+    .eq("sessao_id", sessaoId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as FechamentoSessao | null;
+}
+
+export async function buscarMovimentosCaixa(sessaoId: number): Promise<MovimentoCaixa[]> {
+  const { data, error } = await supabase
+    .from("movimentos_caixa")
+    .select("*")
+    .eq("sessao_id", sessaoId)
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as MovimentoCaixa[];
+}
+
+export async function buscarVendasProduto(sessaoId: number): Promise<VendaProduto[]> {
+  const { data, error } = await supabase
+    .from("v_vendas_produto")
+    .select("*")
+    .eq("sessao_id", sessaoId)
+    .order("faturado", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as VendaProduto[];
+}
+
+export async function buscarResumoSessao(sessaoId: number): Promise<ResumoSessao> {
+  const { data, error } = await supabase
+    .from("comandas")
+    .select("mesa_id")
+    .eq("sessao_id", sessaoId);
+  if (error) throw error;
+  const linhas = data ?? [];
+  return {
+    comandas: linhas.length,
+    mesasAtendidas: new Set(linhas.map((l) => l.mesa_id)).size,
+  };
+}
+
+/** Cancelamentos do turno — é o relatório que justifica a regra do dono existir. */
+export async function buscarCancelamentos(sessaoId: number): Promise<Lancamento[]> {
+  const { data: comandasDaSessao, error: erroComandas } = await supabase
+    .from("comandas")
+    .select("id")
+    .eq("sessao_id", sessaoId);
+  if (erroComandas) throw erroComandas;
+
+  const ids = (comandasDaSessao ?? []).map((c) => c.id as number);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("lancamentos")
+    .select("*")
+    .in("comanda_id", ids)
+    .not("cancelado_em", "is", null)
+    .order("cancelado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Lancamento[];
+}
+
+export async function buscarEquipe(): Promise<Perfil[]> {
+  const { data, error } = await supabase
+    .from("perfis")
+    .select("id, nome, papel, ativo")
+    .order("nome");
+  if (error) throw error;
+  return (data ?? []) as Perfil[];
 }
 
 /* ---------------- escrita (só por RPC) ---------------- */
@@ -176,6 +339,124 @@ export async function fecharComanda(comandaId: number) {
   if (error) throw error;
 }
 
+/* ---------------- gestão: caixa ---------------- */
+
+export async function abrirSessaoCaixa(args: {
+  troco: number;
+  evento: boolean;
+  couvert: number;
+}): Promise<number> {
+  const { data, error } = await supabase.rpc("abrir_sessao_caixa", {
+    p_troco: args.troco,
+    p_evento: args.evento,
+    p_couvert: args.couvert,
+  });
+  if (error) throw error;
+  return data as number;
+}
+
+export async function fecharSessaoCaixa(valorConferido: number, observacao?: string | null) {
+  const { error } = await supabase.rpc("fechar_sessao_caixa", {
+    p_valor_conferido: valorConferido,
+    p_observacao: observacao ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function registrarMovimentoCaixa(
+  tipo: TipoMovimento,
+  valor: number,
+  motivo: string,
+) {
+  const { error } = await supabase.rpc("registrar_movimento_caixa", {
+    p_tipo: tipo,
+    p_valor: valor,
+    p_motivo: motivo,
+  });
+  if (error) throw error;
+}
+
+/* ---------------- gestão: cardápio ---------------- */
+/* CRUD direto — RLS já exige papel dono/gerente (`e_gestor()`). */
+
+export async function criarCategoria(args: {
+  nome: string;
+  destino: Destino;
+  ordem?: number;
+}): Promise<Categoria> {
+  const { data, error } = await supabase
+    .from("categorias")
+    .insert({ nome: args.nome, destino: args.destino, ordem: args.ordem ?? 0 })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Categoria;
+}
+
+export async function atualizarCategoria(
+  id: number,
+  patch: Partial<Pick<Categoria, "nome" | "destino" | "ordem" | "ativa">>,
+) {
+  const { error } = await supabase.from("categorias").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function criarProduto(args: {
+  categoria_id: number;
+  nome: string;
+  observacao?: string | null;
+  preco: number;
+  ordem?: number;
+}): Promise<Produto> {
+  const { data, error } = await supabase
+    .from("produtos")
+    .insert({
+      categoria_id: args.categoria_id,
+      nome: args.nome,
+      observacao: args.observacao ?? null,
+      preco: args.preco,
+      ordem: args.ordem ?? 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Produto;
+}
+
+export async function atualizarProduto(
+  id: number,
+  patch: Partial<Pick<Produto, "categoria_id" | "nome" | "observacao" | "preco" | "ordem" | "ativo">>,
+) {
+  const { error } = await supabase.from("produtos").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Toggle de disponibilidade — o caminho documentado no contrato de RPCs (SPEC §5). */
+export async function alternarDisponibilidade(produtoId: number, disponivel: boolean) {
+  const { error } = await supabase.rpc("alternar_disponibilidade", {
+    p_produto: produtoId,
+    p_disponivel: disponivel,
+  });
+  if (error) throw error;
+}
+
+/* ---------------- gestão: equipe ---------------- */
+
+export async function atualizarPapelPerfil(id: string, papel: Papel) {
+  const { error } = await supabase.from("perfis").update({ papel }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function atualizarAtivoPerfil(id: string, ativo: boolean) {
+  const { error } = await supabase.from("perfis").update({ ativo }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function definirPin(pin: string) {
+  const { error } = await supabase.rpc("definir_pin", { p_pin: pin });
+  if (error) throw error;
+}
+
 /* ---------------- formato ---------------- */
 
 export const dinheiro = (v: number) =>
@@ -183,6 +464,16 @@ export const dinheiro = (v: number) =>
 
 export const semAcento = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export const dataHora = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
 
 export function tempoDesde(iso: string | null) {
   if (!iso) return "";
