@@ -12,6 +12,51 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input{font:inherit}
 :focus-visible{outline:2px solid var(--dourado);outline-offset:2px;border-radius:4px}
 
+/* ---------------- movimento ---------------- */
+@media (prefers-reduced-motion: no-preference){
+  button,.mesa,.chip,.chip-toggle,.botao-topo,.botao-icone,input,select,
+  .item,.linha-produto,.linha-equipe,.tirar{
+    transition:background-color .15s ease,color .15s ease,border-color .15s ease,
+      opacity .15s ease,transform .1s ease,box-shadow .15s ease;
+  }
+  button:not(:disabled):active{transform:scale(.97)}
+  .mesa:not(:disabled):active{transform:scale(.98)}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important;
+  }
+}
+
+/* transição entre telas (Salão ↔ Comanda ↔ Gestão) */
+@keyframes entra-pagina{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.pagina-transicao{animation:entra-pagina .25s ease-out}
+
+/* mesas entrando no grid */
+@keyframes mesa-entra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.mesa{animation:mesa-entra .3s ease-out backwards}
+
+/* badge "ainda não confirmado" respira, de leve, enquanto sincroniza */
+@keyframes pulso-suave{0%,100%{opacity:1}50%{opacity:.55}}
+.qtd.pendente{animation:pulso-suave 1.4s ease-in-out infinite}
+
+/* modal: fundo esmaece, folha sobe */
+@keyframes fundo-entra{from{opacity:0}to{opacity:1}}
+@keyframes folha-entra{from{transform:translateY(20px);opacity:.5}to{transform:translateY(0);opacity:1}}
+.modal .fundo{animation:fundo-entra .18s ease-out}
+.caixa{animation:folha-entra .24s cubic-bezier(.22,1,.36,1)}
+
+/* spinner */
+@keyframes girar{to{transform:rotate(360deg)}}
+.spinner{
+  width:18px;height:18px;border-radius:50%;flex:0 0 auto;
+  border:2.5px solid currentColor;border-top-color:transparent;
+  display:inline-block;animation:girar .6s linear infinite;
+  opacity:.85;
+}
+.spinner-botao{width:15px;height:15px;border-width:2px;vertical-align:-3px;margin-right:7px}
+
 /* topo */
 .topo{position:sticky;top:0;z-index:30;background:rgba(22,19,15,.96);backdrop-filter:blur(10px);
   border-bottom:1px solid rgba(244,237,223,.1)}
@@ -175,4 +220,6 @@ main{padding-bottom:104px}
   border:1px solid rgba(244,237,223,.14);color:var(--espuma);font-size:16px}
 .login button{width:100%;margin-top:22px;padding:14px;border-radius:10px;background:var(--dourado);
   color:#231A06;font-weight:700;font-size:16px}
-.carregando{padding:60px 20px;text-align:center;color:#9E9280}
+.carregando{padding:60px 20px;text-align:center;color:#9E9280;
+  display:flex;flex-direction:column;align-items:center;gap:12px}
+.carregando .spinner{color:var(--dourado);width:24px;height:24px;border-width:3px}

@@ -16,6 +16,7 @@ import {
   type SessaoCaixa,
   type TipoMovimento,
 } from "../../lib/api";
+import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
 
 export default function Caixa() {
   const [sessao, setSessao] = useState<SessaoCaixa | null>(null);
@@ -58,7 +59,7 @@ export default function Caixa() {
     return () => void supabase.removeChannel(canal);
   }, [recarregar]);
 
-  if (carregando) return <p className="carregando">Carregando o caixa…</p>;
+  if (carregando) return <Carregando texto="Carregando o caixa…" />;
 
   return (
     <div className="painel">
@@ -127,6 +128,7 @@ function AbrirTurno({ onAbriu }: { onAbriu: () => void }) {
 
       <div className="acoes">
         <button className="principal" onClick={abrir} disabled={enviando}>
+          {enviando && <SpinnerBotao />}
           {enviando ? "Abrindo…" : "Abrir turno"}
         </button>
       </div>
@@ -317,6 +319,7 @@ function ModalMovimento({
         <div className="acoes">
           <button className="secundario" onClick={onFechar}>Voltar</button>
           <button className="principal" onClick={confirmar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             {enviando ? "Registrando…" : "Registrar"}
           </button>
         </div>
@@ -386,6 +389,7 @@ function ModalFechamento({
         <div className="acoes">
           <button className="secundario" onClick={onFechar}>Voltar</button>
           <button className="perigo" onClick={confirmar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             {enviando ? "Fechando…" : "Confirmar fechamento"}
           </button>
         </div>

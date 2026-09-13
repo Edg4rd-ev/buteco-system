@@ -7,6 +7,7 @@ import {
   type Papel,
   type Perfil,
 } from "../../lib/api";
+import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
 
 const PAPEIS: { id: Papel; rotulo: string }[] = [
   { id: "garcom", rotulo: "Garçom" },
@@ -50,7 +51,7 @@ export default function Equipe({ perfilAtual }: { perfilAtual: Perfil }) {
     }
   }
 
-  if (carregando) return <p className="carregando">Carregando a equipe…</p>;
+  if (carregando) return <Carregando texto="Carregando a equipe…" />;
 
   return (
     <div className="painel">
@@ -151,6 +152,7 @@ function MeuPin() {
 
       <div className="acoes">
         <button className="principal" onClick={salvar} disabled={enviando}>
+          {enviando && <SpinnerBotao />}
           {enviando ? "Salvando…" : "Salvar PIN"}
         </button>
       </div>

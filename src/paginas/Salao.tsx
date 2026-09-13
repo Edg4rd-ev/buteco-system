@@ -10,6 +10,7 @@ import {
   type MesaSalao,
   type Perfil,
 } from "../lib/api";
+import Carregando from "../componentes/Carregando";
 
 export default function Salao({ perfil }: { perfil: Perfil }) {
   const navegar = useNavigate();
@@ -97,10 +98,10 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
         </div>
 
         {carregando ? (
-          <p className="carregando">Carregando o salão…</p>
+          <Carregando texto="Carregando o salão…" />
         ) : (
           <div className="mesas">
-            {mesas.map((m) => {
+            {mesas.map((m, i) => {
               const ocupada = !!m.comanda_id;
               return (
                 <button
@@ -108,6 +109,7 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
                   className={"mesa" + (ocupada ? " ocupada" : "")}
                   onClick={() => entrarNaMesa(m)}
                   disabled={!caixaAberto && !ocupada}
+                  style={{ animationDelay: `${Math.min(i * 25, 300)}ms` }}
                 >
                   <span className="rotulo">
                     {m.rotulo === "Balcão" ? "Balcão" : `Mesa ${m.rotulo}`}

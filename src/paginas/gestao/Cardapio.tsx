@@ -11,6 +11,7 @@ import {
   type Destino,
   type Produto,
 } from "../../lib/api";
+import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
 
 const DESTINOS: { id: Destino; rotulo: string }[] = [
   { id: "chapa", rotulo: "Chapa" },
@@ -54,7 +55,7 @@ export default function Cardapio() {
     return m;
   }, [produtos]);
 
-  if (carregando) return <p className="carregando">Carregando o cardápio…</p>;
+  if (carregando) return <Carregando texto="Carregando o cardápio…" />;
 
   return (
     <div className="painel">
@@ -209,6 +210,7 @@ function ModalCategoria({
         <div className="acoes">
           <button className="secundario" onClick={onFechar}>Voltar</button>
           <button className="principal" onClick={salvar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             {enviando ? "Salvando…" : "Salvar"}
           </button>
         </div>
@@ -303,6 +305,7 @@ function ModalProduto({
         <div className="acoes">
           <button className="secundario" onClick={onFechar}>Voltar</button>
           <button className="principal" onClick={salvar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             {enviando ? "Salvando…" : "Salvar"}
           </button>
         </div>
@@ -310,6 +313,7 @@ function ModalProduto({
         {produto && (
           <div className="acoes" style={{ marginTop: 10 }}>
             <button className={produto.ativo ? "perigo" : "secundario"} onClick={alternarAtivo} disabled={enviando}>
+              {enviando && <SpinnerBotao />}
               {produto.ativo ? "Remover do cardápio (mantém histórico)" : "Voltar ao cardápio"}
             </button>
           </div>

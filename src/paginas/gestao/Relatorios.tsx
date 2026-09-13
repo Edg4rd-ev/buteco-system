@@ -13,6 +13,7 @@ import {
   type SessaoCaixa,
   type VendaProduto,
 } from "../../lib/api";
+import Carregando from "../../componentes/Carregando";
 
 export default function Relatorios() {
   const [sessoes, setSessoes] = useState<SessaoCaixa[]>([]);
@@ -112,7 +113,7 @@ export default function Relatorios() {
     URL.revokeObjectURL(url);
   }
 
-  if (carregando && sessoes.length === 0) return <p className="carregando">Carregando relatórios…</p>;
+  if (carregando && sessoes.length === 0) return <Carregando texto="Carregando relatórios…" />;
 
   return (
     <div className="painel">

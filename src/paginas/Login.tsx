@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/api";
+import { SpinnerBotao } from "../componentes/Carregando";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -43,6 +44,7 @@ export default function Login() {
       {erro && <p className="erro" style={{ color: "var(--vermelho)" }}>{erro}</p>}
 
       <button onClick={entrar} disabled={enviando}>
+        {enviando && <SpinnerBotao />}
         {enviando ? "Entrando…" : "Entrar"}
       </button>
     </div>

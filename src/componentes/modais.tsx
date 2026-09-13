@@ -6,6 +6,7 @@ import {
   type FormaPagamento,
   type Lancamento,
 } from "../lib/api";
+import { SpinnerBotao } from "./Carregando";
 
 /* ------------------------------------------------------------------
    PIN — cancelar lançamento já gravado.
@@ -77,6 +78,7 @@ export function ModalPin({
         <div className="acoes">
           <button className="secundario" onClick={onFechar}>Voltar</button>
           <button className="perigo" onClick={confirmar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             {enviando ? "Cancelando…" : "Cancelar item"}
           </button>
         </div>
@@ -215,6 +217,7 @@ export function ModalConta({
 
         <div className="acoes">
           <button className="secundario" onClick={pagar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
             Registrar pagamento
           </button>
           <button
@@ -223,6 +226,7 @@ export function ModalConta({
             disabled={enviando || falta > 0.009}
             title={falta > 0.009 ? "Registre o pagamento do valor que falta antes de encerrar" : undefined}
           >
+            {enviando && <SpinnerBotao />}
             Encerrar mesa
           </button>
         </div>

@@ -1,10 +1,33 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { buscarPerfil, supabase, type Perfil } from "./lib/api";
 import Login from "./paginas/Login";
 import Salao from "./paginas/Salao";
 import Comanda from "./paginas/Comanda";
 import Gestao from "./paginas/Gestao";
+import Carregando from "./componentes/Carregando";
+
+function Rotas({ perfil }: { perfil: Perfil }) {
+  // key pelo pathname reinicia a animação de entrada a cada troca de tela.
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="pagina-transicao">
+      <Routes location={location}>
+        <Route path="/" element={<Salao perfil={perfil} />} />
+        <Route path="/comanda/:id" element={<Comanda />} />
+        <Route
+          path="/gestao"
+          element={
+            perfil.papel === "dono" || perfil.papel === "gerente"
+              ? <Gestao perfil={perfil} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
+}
 
 export default function App() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -32,24 +55,12 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (carregando) return <p className="carregando">Carregando…</p>;
+  if (carregando) return <Carregando texto="Carregando…" />;
   if (!perfil) return <Login />;
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Salao perfil={perfil} />} />
-        <Route path="/comanda/:id" element={<Comanda />} />
-        <Route
-          path="/gestao"
-          element={
-            perfil.papel === "dono" || perfil.papel === "gerente"
-              ? <Gestao perfil={perfil} />
-              : <Navigate to="/" replace />
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Rotas perfil={perfil} />
     </BrowserRouter>
   );
 }
