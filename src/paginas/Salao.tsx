@@ -67,7 +67,6 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
     <>
       <div className="topo">
         <div className="dentro">
-          <img className="topo-logo" src="/marca/logo-seu-barba-icone.svg" alt="" width={32} height={32} />
           <h1>
             Salão
             <span className="sub">{perfil.nome} · {perfil.papel}</span>
