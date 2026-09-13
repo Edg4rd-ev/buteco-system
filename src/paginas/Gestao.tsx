@@ -24,6 +24,7 @@ export default function Gestao({ perfil }: { perfil: Perfil }) {
       <div className="topo">
         <div className="dentro">
           <button className="botao-topo" onClick={() => navegar("/")}>Salão</button>
+          <img className="topo-logo" src="/marca/logo-seu-barba-icone.svg" alt="" width={32} height={32} />
           <h1>
             Gestão
             <span className="sub">{perfil.nome} · {perfil.papel}</span>

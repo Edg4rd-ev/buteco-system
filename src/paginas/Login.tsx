@@ -17,7 +17,7 @@ export default function Login() {
 
   return (
     <div className="login">
-      <h1>Buteco Seu Barba</h1>
+      <img className="login-logo" src="/marca/logo-seu-barba.svg" alt="Buteco Seu Barba" width={128} height={128} />
       <p className="sub">Comandas do salão</p>
 
       <label htmlFor="email">E-mail</label>

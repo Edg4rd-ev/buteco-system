@@ -160,6 +160,7 @@ export default function Comanda() {
       <div className="topo">
         <div className="dentro">
           <button className="botao-topo" onClick={() => navegar("/")}>Salão</button>
+          <img className="topo-logo" src="/marca/logo-seu-barba-icone.svg" alt="" width={32} height={32} />
           <h1>
             {rotuloMesa === "Balcão" ? "Balcão" : `Mesa ${rotuloMesa}`}
             <span className="sub">Toque no item para lançar</span>
