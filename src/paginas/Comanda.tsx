@@ -40,15 +40,26 @@ export default function Comanda() {
   const [contaAberta, setContaAberta] = useState(false);
   const secoes = useRef<Record<number, HTMLElement | null>>({});
 
+  /* Vários itens lançados em sequência rápida disparam um evento realtime
+     por linha, e cada um chama recarregar() de novo. Essas buscas não são
+     sequenciadas — uma iniciada mais cedo (com menos linhas gravadas ainda)
+     pode responder depois de uma mais nova e sobrescrever o estado com
+     menos itens do que realmente tem. O contador de chamada garante que só
+     a resposta da chamada mais recente é aplicada; as demais são descartadas. */
+  const chamadaRecarregar = useRef(0);
+
   const recarregar = useCallback(async () => {
+    const minhaChamada = ++chamadaRecarregar.current;
     try {
       const [ls, pg] = await Promise.all([
         buscarLancamentos(comandaId),
         supabase.from("pagamentos").select("valor").eq("comanda_id", comandaId),
       ]);
+      if (minhaChamada !== chamadaRecarregar.current) return; // resposta velha, ignora
       setLancamentos(ls);
       setPago((pg.data ?? []).reduce((s, p) => s + Number(p.valor), 0));
     } catch (e) {
+      if (minhaChamada !== chamadaRecarregar.current) return;
       setErro(e instanceof Error ? e.message : "Falha ao carregar a comanda.");
     }
   }, [comandaId]);
