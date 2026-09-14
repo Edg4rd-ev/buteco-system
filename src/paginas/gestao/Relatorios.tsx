@@ -1,96 +1,191 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buscarCancelamentos,
+  buscarCancelamentosPeriodo,
   buscarFechamentoSessao,
+  buscarResumoPeriodo,
   buscarResumoSessao,
+  buscarSessoesNoPeriodo,
   buscarSessoesRecentes,
+  buscarTodasAsSessoes,
+  buscarVendasPeriodo,
   buscarVendasProduto,
   dataHora,
   dinheiro,
   type FechamentoSessao,
   type Lancamento,
+  type ResumoPeriodo,
   type ResumoSessao,
   type SessaoCaixa,
   type VendaProduto,
 } from "../../lib/api";
 import Carregando from "../../componentes/Carregando";
 
+type Modo = "turno" | "dia" | "mes" | "tudo";
+
+const MODOS: { id: Modo; rotulo: string }[] = [
+  { id: "turno", rotulo: "Turno" },
+  { id: "dia", rotulo: "Dia" },
+  { id: "mes", rotulo: "Mês" },
+  { id: "tudo", rotulo: "Total geral" },
+];
+
+const NOMES_MES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function hojeISO() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // corrige pro fuso local antes de fatiar
+  return d.toISOString().slice(0, 10);
+}
+function mesAtualISO() {
+  return hojeISO().slice(0, 7);
+}
+
 export default function Relatorios() {
-  const [sessoes, setSessoes] = useState<SessaoCaixa[]>([]);
-  const [sessaoId, setSessaoId] = useState<number | null>(null);
-  const [fechamento, setFechamento] = useState<FechamentoSessao | null>(null);
-  const [resumo, setResumo] = useState<ResumoSessao | null>(null);
-  const [vendas, setVendas] = useState<VendaProduto[]>([]);
-  const [cancelamentos, setCancelamentos] = useState<Lancamento[]>([]);
+  const [modo, setModo] = useState<Modo>("turno");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
 
+  /* modo turno */
+  const [sessoesRecentes, setSessoesRecentes] = useState<SessaoCaixa[]>([]);
+  const [sessaoId, setSessaoId] = useState<number | null>(null);
+  const [fechamentoTurno, setFechamentoTurno] = useState<FechamentoSessao | null>(null);
+  const [resumoTurno, setResumoTurno] = useState<ResumoSessao | null>(null);
+
+  /* modos dia / mês / tudo */
+  const [dia, setDia] = useState(hojeISO);
+  const [mes, setMes] = useState(mesAtualISO);
+  const [sessoesPeriodo, setSessoesPeriodo] = useState<SessaoCaixa[]>([]);
+  const [resumoPeriodo, setResumoPeriodo] = useState<ResumoPeriodo | null>(null);
+
+  /* comuns aos dois */
+  const [vendas, setVendas] = useState<VendaProduto[]>([]);
+  const [cancelamentos, setCancelamentos] = useState<Lancamento[]>([]);
+
+  // lista de turnos pro seletor — carrega uma vez
   useEffect(() => {
     buscarSessoesRecentes()
       .then((lista) => {
-        setSessoes(lista);
+        setSessoesRecentes(lista);
         if (lista.length) setSessaoId(lista[0].id);
       })
-      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao listar turnos."))
-      .finally(() => setCarregando(false));
+      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao listar turnos."));
   }, []);
 
-  const carregarSessao = useCallback(async (id: number) => {
-    setCarregando(true);
-    try {
-      const [f, r, v, c] = await Promise.all([
-        buscarFechamentoSessao(id),
-        buscarResumoSessao(id),
-        buscarVendasProduto(id),
-        buscarCancelamentos(id),
-      ]);
-      setFechamento(f);
-      setResumo(r);
-      setVendas(v);
-      setCancelamentos(c);
-      setErro(null);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Falha ao carregar o relatório.");
-    } finally {
-      setCarregando(false);
-    }
-  }, []);
-
+  // modo turno: dados de UM turno
   useEffect(() => {
-    if (sessaoId !== null) void carregarSessao(sessaoId);
-  }, [sessaoId, carregarSessao]);
+    if (modo !== "turno" || sessaoId === null) return;
+    setCarregando(true);
+    Promise.all([
+      buscarFechamentoSessao(sessaoId),
+      buscarResumoSessao(sessaoId),
+      buscarVendasProduto(sessaoId),
+      buscarCancelamentos(sessaoId),
+    ])
+      .then(([f, r, v, c]) => {
+        setFechamentoTurno(f);
+        setResumoTurno(r);
+        setVendas(v);
+        setCancelamentos(c);
+        setErro(null);
+      })
+      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao carregar o relatório."))
+      .finally(() => setCarregando(false));
+  }, [modo, sessaoId]);
 
-  const sessaoAtual = sessoes.find((s) => s.id === sessaoId) ?? null;
+  // modos dia / mês / tudo: soma vários turnos
+  useEffect(() => {
+    if (modo === "turno") return;
+    setCarregando(true);
+
+    const buscarSessoes = () => {
+      if (modo === "tudo") return buscarTodasAsSessoes();
+      let inicio: Date;
+      let fim: Date;
+      if (modo === "dia") {
+        inicio = new Date(`${dia}T00:00:00`);
+        fim = new Date(inicio);
+        fim.setDate(fim.getDate() + 1);
+      } else {
+        inicio = new Date(`${mes}-01T00:00:00`);
+        fim = new Date(inicio);
+        fim.setMonth(fim.getMonth() + 1);
+      }
+      return buscarSessoesNoPeriodo(inicio, fim);
+    };
+
+    buscarSessoes()
+      .then(async (sessoes) => {
+        setSessoesPeriodo(sessoes);
+        const ids = sessoes.map((s) => s.id);
+        const [r, v, c] = await Promise.all([
+          buscarResumoPeriodo(ids),
+          buscarVendasPeriodo(ids),
+          buscarCancelamentosPeriodo(ids),
+        ]);
+        setResumoPeriodo(r);
+        setVendas(v);
+        setCancelamentos(c);
+        setErro(null);
+      })
+      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao carregar o relatório."))
+      .finally(() => setCarregando(false));
+  }, [modo, dia, mes]);
+
+  /* ---------------- unifica turno x período pra renderizar ---------------- */
+
+  const pagamento = modo === "turno" ? fechamentoTurno : resumoPeriodo;
+  const comandas = modo === "turno" ? (resumoTurno?.comandas ?? 0) : (resumoPeriodo?.comandas ?? 0);
+  const labelComandas = modo === "turno" ? "Mesas atendidas" : "Comandas atendidas";
+  const pronto = modo === "turno" ? !!(fechamentoTurno && resumoTurno) : !!resumoPeriodo;
+  const qtdTurnos = modo === "turno" ? 1 : sessoesPeriodo.length;
 
   const ticketMedio = useMemo(() => {
-    if (!fechamento || !resumo || resumo.comandas === 0) return 0;
-    return Number(fechamento.total_recebido) / resumo.comandas;
-  }, [fechamento, resumo]);
+    if (!pagamento || comandas === 0) return 0;
+    return Number(pagamento.total_recebido) / comandas;
+  }, [pagamento, comandas]);
+
+  const tituloPeriodo = useMemo(() => {
+    if (modo === "turno") {
+      const s = sessoesRecentes.find((s) => s.id === sessaoId);
+      if (!s) return "";
+      return `Turno de ${dataHora(s.aberta_em)}${s.fechada_em ? ` até ${dataHora(s.fechada_em)}` : " (em andamento)"}`;
+    }
+    if (modo === "dia") return new Date(`${dia}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+    if (modo === "mes") {
+      const [ano, m] = mes.split("-");
+      return `${NOMES_MES[Number(m) - 1]} de ${ano}`;
+    }
+    return "Total geral — todos os turnos";
+  }, [modo, sessaoId, sessoesRecentes, dia, mes]);
 
   const textoExport = useMemo(() => {
-    if (!sessaoAtual || !fechamento || !resumo) return "";
+    if (!pagamento) return "";
     const linhas = [
-      `Buteco Seu Barba — fechamento do turno`,
-      `Aberto: ${dataHora(sessaoAtual.aberta_em)}${sessaoAtual.fechada_em ? ` · Fechado: ${dataHora(sessaoAtual.fechada_em)}` : " · em andamento"}`,
+      `Buteco Seu Barba — ${tituloPeriodo}`,
+      modo !== "turno" ? `${qtdTurnos} ${qtdTurnos === 1 ? "turno" : "turnos"} no período` : "",
       ``,
-      `Pix: ${dinheiro(fechamento.pix)}`,
-      `Débito: ${dinheiro(fechamento.debito)}`,
-      `Crédito: ${dinheiro(fechamento.credito)}`,
-      `Dinheiro: ${dinheiro(fechamento.dinheiro)}`,
-      `Total recebido: ${dinheiro(fechamento.total_recebido)}`,
-      `Sangrias: ${dinheiro(fechamento.sangrias)}`,
-      `Suprimentos: ${dinheiro(fechamento.suprimentos)}`,
+      `Pix: ${dinheiro(pagamento.pix)}`,
+      `Débito: ${dinheiro(pagamento.debito)}`,
+      `Crédito: ${dinheiro(pagamento.credito)}`,
+      `Dinheiro: ${dinheiro(pagamento.dinheiro)}`,
+      `Total recebido: ${dinheiro(pagamento.total_recebido)}`,
+      `Sangrias: ${dinheiro(pagamento.sangrias)}`,
+      `Suprimentos: ${dinheiro(pagamento.suprimentos)}`,
       ``,
-      `Mesas atendidas: ${resumo.comandas}`,
+      `${labelComandas}: ${comandas}`,
       `Ticket médio: ${dinheiro(ticketMedio)}`,
       `Cancelamentos: ${cancelamentos.length}`,
       ``,
       `Ranking de produtos:`,
       ...vendas.map((v) => `  ${v.vendidos}× ${v.nome_produto} — ${dinheiro(v.faturado)}`),
-    ];
+    ].filter((l) => l !== "");
     return linhas.join("\n");
-  }, [sessaoAtual, fechamento, resumo, ticketMedio, cancelamentos, vendas]);
+  }, [pagamento, tituloPeriodo, modo, qtdTurnos, labelComandas, comandas, ticketMedio, cancelamentos, vendas]);
 
   function copiarTexto() {
     void navigator.clipboard.writeText(textoExport).then(() => {
@@ -108,48 +203,84 @@ export default function Relatorios() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `turno-${sessaoId}-vendas.csv`;
+    a.download = `relatorio-${modo}-vendas.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  if (carregando && sessoes.length === 0) return <Carregando texto="Carregando relatórios…" />;
+  if (carregando && !pagamento) return <Carregando texto="Carregando relatórios…" />;
 
   return (
     <div className="painel">
       {erro && <p className="aviso-fila">{erro}</p>}
 
+      <nav className="sub-nav" aria-label="Período do relatório">
+        {MODOS.map((m) => (
+          <button
+            key={m.id}
+            className="chip"
+            aria-pressed={modo === m.id}
+            onClick={() => setModo(m.id)}
+          >
+            {m.rotulo}
+          </button>
+        ))}
+      </nav>
+
       <section className="cartao">
-        <label htmlFor="sessao-sel">Turno</label>
-        <select
-          id="sessao-sel"
-          value={sessaoId ?? ""}
-          onChange={(e) => setSessaoId(Number(e.target.value))}
-        >
-          {sessoes.map((s) => (
-            <option key={s.id} value={s.id}>
-              {dataHora(s.aberta_em)} {s.fechada_em ? `→ ${dataHora(s.fechada_em)}` : "· em andamento"}
-            </option>
-          ))}
-        </select>
+        {modo === "turno" && (
+          <>
+            <label htmlFor="sessao-sel">Turno</label>
+            <select id="sessao-sel" value={sessaoId ?? ""} onChange={(e) => setSessaoId(Number(e.target.value))}>
+              {sessoesRecentes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {dataHora(s.aberta_em)} {s.fechada_em ? `→ ${dataHora(s.fechada_em)}` : "· em andamento"}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        {modo === "dia" && (
+          <>
+            <label htmlFor="dia-sel">Dia</label>
+            <input id="dia-sel" type="date" value={dia} onChange={(e) => setDia(e.target.value)} max={hojeISO()} />
+          </>
+        )}
+        {modo === "mes" && (
+          <>
+            <label htmlFor="mes-sel">Mês</label>
+            <input id="mes-sel" type="month" value={mes} onChange={(e) => setMes(e.target.value)} max={mesAtualISO()} />
+          </>
+        )}
+        {modo === "tudo" && <p className="dica" style={{ margin: 0 }}>Soma de todos os turnos já registrados.</p>}
+
+        {modo !== "turno" && (
+          <p className="dica" style={{ marginTop: 10, marginBottom: 0 }}>
+            {qtdTurnos === 0
+              ? "Nenhum turno nesse período."
+              : `${qtdTurnos} ${qtdTurnos === 1 ? "turno encontrado" : "turnos encontrados"}.`}
+          </p>
+        )}
       </section>
 
-      {fechamento && resumo && (
+      {pronto && pagamento && (
         <>
           <section className="cartao">
-            <h2>Totais por forma de pagamento</h2>
-            <div className="linha"><span>Pix</span><span className="v">{dinheiro(fechamento.pix)}</span></div>
-            <div className="linha"><span>Débito</span><span className="v">{dinheiro(fechamento.debito)}</span></div>
-            <div className="linha"><span>Crédito</span><span className="v">{dinheiro(fechamento.credito)}</span></div>
-            <div className="linha"><span>Dinheiro</span><span className="v">{dinheiro(fechamento.dinheiro)}</span></div>
-            <div className="soma"><span>Total</span><span className="num">{dinheiro(fechamento.total_recebido)}</span></div>
+            <h2>{tituloPeriodo}</h2>
+            <div className="linha"><span>Pix</span><span className="v">{dinheiro(pagamento.pix)}</span></div>
+            <div className="linha"><span>Débito</span><span className="v">{dinheiro(pagamento.debito)}</span></div>
+            <div className="linha"><span>Crédito</span><span className="v">{dinheiro(pagamento.credito)}</span></div>
+            <div className="linha"><span>Dinheiro</span><span className="v">{dinheiro(pagamento.dinheiro)}</span></div>
+            <div className="linha"><span>Sangrias</span><span className="v">− {dinheiro(pagamento.sangrias)}</span></div>
+            <div className="linha"><span>Suprimentos</span><span className="v">+ {dinheiro(pagamento.suprimentos)}</span></div>
+            <div className="soma"><span>Total</span><span className="num">{dinheiro(pagamento.total_recebido)}</span></div>
           </section>
 
           <section className="cartao">
             <div className="metricas">
               <div className="metrica">
-                <span>Mesas atendidas</span>
-                <strong className="num">{resumo.comandas}</strong>
+                <span>{labelComandas}</span>
+                <strong className="num">{comandas}</strong>
               </div>
               <div className="metrica">
                 <span>Ticket médio</span>
@@ -174,7 +305,7 @@ export default function Relatorios() {
           <section className="cartao">
             <h2>Cancelamentos</h2>
             <p className="dica">É o relatório que justifica a regra do dono existir.</p>
-            {cancelamentos.length === 0 && <p className="dica">Nenhum cancelamento no turno.</p>}
+            {cancelamentos.length === 0 && <p className="dica">Nenhum cancelamento no período.</p>}
             <div className="lista">
               {cancelamentos.map((l) => (
                 <div className="linha-cancelamento" key={l.id}>

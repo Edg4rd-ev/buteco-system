@@ -126,6 +126,18 @@ export type ResumoSessao = {
   mesasAtendidas: number;
 };
 
+/** Igual a FechamentoSessao, mas somado por vários turnos (dia, mês, tudo). */
+export type ResumoPeriodo = {
+  pix: number;
+  debito: number;
+  credito: number;
+  dinheiro: number;
+  total_recebido: number;
+  sangrias: number;
+  suprimentos: number;
+  comandas: number;
+};
+
 /* ---------------- leitura ---------------- */
 
 export async function buscarPerfil(): Promise<Perfil | null> {
@@ -262,6 +274,121 @@ export async function buscarCancelamentos(sessaoId: number): Promise<Lancamento[
   if (erroComandas) throw erroComandas;
 
   const ids = (comandasDaSessao ?? []).map((c) => c.id as number);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("lancamentos")
+    .select("*")
+    .in("comanda_id", ids)
+    .not("cancelado_em", "is", null)
+    .order("cancelado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Lancamento[];
+}
+
+/* ---------------- relatórios por período (dia / mês / tudo) ---------------- */
+/* O turno continua sendo a unidade no banco — essas funções somam vários
+   turnos de uma vez, pra quem quer o dia ou o mês inteiro sem abrir um
+   por um. */
+
+/** `fim` de fora (exclusivo) — passe null pra "sem limite" (turno em aberto incluso). */
+export async function buscarSessoesNoPeriodo(inicio: Date, fim: Date | null): Promise<SessaoCaixa[]> {
+  let query = supabase
+    .from("sessoes_caixa")
+    .select("*")
+    .gte("aberta_em", inicio.toISOString())
+    .order("aberta_em", { ascending: false });
+  if (fim) query = query.lt("aberta_em", fim.toISOString());
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as SessaoCaixa[];
+}
+
+/** Todos os turnos já registrados — pro "total geral". */
+export async function buscarTodasAsSessoes(): Promise<SessaoCaixa[]> {
+  const { data, error } = await supabase
+    .from("sessoes_caixa")
+    .select("*")
+    .order("aberta_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SessaoCaixa[];
+}
+
+export async function buscarResumoPeriodo(sessaoIds: number[]): Promise<ResumoPeriodo> {
+  const vazio: ResumoPeriodo = {
+    pix: 0, debito: 0, credito: 0, dinheiro: 0, total_recebido: 0, sangrias: 0, suprimentos: 0, comandas: 0,
+  };
+  if (sessaoIds.length === 0) return vazio;
+
+  const [comandasRes, movimentosRes] = await Promise.all([
+    supabase.from("comandas").select("id").in("sessao_id", sessaoIds),
+    supabase.from("movimentos_caixa").select("tipo, valor").in("sessao_id", sessaoIds),
+  ]);
+  if (comandasRes.error) throw comandasRes.error;
+  if (movimentosRes.error) throw movimentosRes.error;
+
+  const comandaIds = (comandasRes.data ?? []).map((c) => c.id as number);
+  let pagamentos: { forma: FormaPagamento; valor: number }[] = [];
+  if (comandaIds.length > 0) {
+    const { data, error } = await supabase.from("pagamentos").select("forma, valor").in("comanda_id", comandaIds);
+    if (error) throw error;
+    pagamentos = (data ?? []) as { forma: FormaPagamento; valor: number }[];
+  }
+  const movimentos = (movimentosRes.data ?? []) as { tipo: TipoMovimento; valor: number }[];
+
+  const porForma = (f: FormaPagamento) =>
+    pagamentos.filter((p) => p.forma === f).reduce((s, p) => s + Number(p.valor), 0);
+  const porTipo = (t: TipoMovimento) =>
+    movimentos.filter((m) => m.tipo === t).reduce((s, m) => s + Number(m.valor), 0);
+
+  return {
+    pix: porForma("pix"),
+    debito: porForma("debito"),
+    credito: porForma("credito"),
+    dinheiro: porForma("dinheiro"),
+    total_recebido: pagamentos.reduce((s, p) => s + Number(p.valor), 0),
+    sangrias: porTipo("sangria"),
+    suprimentos: porTipo("suprimento"),
+    comandas: comandaIds.length,
+  };
+}
+
+/** Ranking de produtos somado entre vários turnos (v_vendas_produto já vem por turno). */
+export async function buscarVendasPeriodo(sessaoIds: number[]): Promise<VendaProduto[]> {
+  if (sessaoIds.length === 0) return [];
+  const { data, error } = await supabase.from("v_vendas_produto").select("*").in("sessao_id", sessaoIds);
+  if (error) throw error;
+
+  const porProduto = new Map<number, VendaProduto>();
+  for (const linha of (data ?? []) as VendaProduto[]) {
+    const atual = porProduto.get(linha.produto_id);
+    if (atual) {
+      atual.vendidos += Number(linha.vendidos);
+      atual.faturado += Number(linha.faturado);
+      atual.cancelamentos += Number(linha.cancelamentos);
+    } else {
+      porProduto.set(linha.produto_id, {
+        sessao_id: 0,
+        produto_id: linha.produto_id,
+        nome_produto: linha.nome_produto,
+        vendidos: Number(linha.vendidos),
+        faturado: Number(linha.faturado),
+        cancelamentos: Number(linha.cancelamentos),
+      });
+    }
+  }
+  return [...porProduto.values()].sort((a, b) => b.faturado - a.faturado);
+}
+
+export async function buscarCancelamentosPeriodo(sessaoIds: number[]): Promise<Lancamento[]> {
+  if (sessaoIds.length === 0) return [];
+  const { data: comandasData, error: erroComandas } = await supabase
+    .from("comandas")
+    .select("id")
+    .in("sessao_id", sessaoIds);
+  if (erroComandas) throw erroComandas;
+
+  const ids = (comandasData ?? []).map((c) => c.id as number);
   if (ids.length === 0) return [];
 
   const { data, error } = await supabase

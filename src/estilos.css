@@ -162,6 +162,8 @@ main{padding-bottom:104px}
 
 /* gestão */
 .chip[aria-pressed="true"]{background:var(--dourado);color:#231A06;border-color:var(--dourado);font-weight:600}
+.sub-nav{display:flex;gap:8px;flex-wrap:wrap}
+.sub-nav .chip{min-height:36px}
 .painel{width:var(--largura);margin:0 auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:14px}
 .cartao{background:var(--ferro);border:1px solid rgba(244,237,223,.1);border-radius:14px;padding:16px}
 .cartao h2{font-size:17px;margin-bottom:10px;color:var(--espuma)}
