@@ -230,9 +230,11 @@ function TurnoAberto({
             {mesasAbertas.map((m) => (m.rotulo === "Balcão" ? "Balcão" : `Mesa ${m.rotulo}`)).join(", ")}
           </p>
         ) : (
-          <button className="principal" style={{ marginTop: 14 }} onClick={() => setFechando(true)}>
-            Conferir e fechar turno
-          </button>
+          <div className="acoes">
+            <button className="principal" onClick={() => setFechando(true)}>
+              Conferir e fechar turno
+            </button>
+          </div>
         )}
       </section>
 
