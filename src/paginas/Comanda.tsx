@@ -13,6 +13,7 @@ import {
 } from "../lib/api";
 import {
   assinarConfirmados,
+  assinarErros,
   assinarFila,
   descartarPendente,
   enfileirar,
@@ -71,6 +72,13 @@ export default function Comanda() {
       setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [...atual, l]));
     });
 
+    // item recusado (regra, não rede) some da fila em silêncio — sem isso
+    // o garçom nunca fica sabendo que o toque dele não valeu.
+    const pararErros = assinarErros((p) => {
+      if (p.comandaId !== comandaId) return;
+      setErro(`${p.nomeProduto} não foi lançado: ${p.erro}`);
+    });
+
     const canal = supabase
       .channel(`comanda-${comandaId}`)
       .on(
@@ -86,6 +94,7 @@ export default function Comanda() {
     return () => {
       parar();
       pararConfirmados();
+      pararErros();
       void supabase.removeChannel(canal);
     };
   }, [comandaId, recarregar]);
@@ -165,6 +174,19 @@ export default function Comanda() {
 
   const naFila = meusPendentes.length;
 
+  /* o aviso "aguardando envio" só aparece se o pendente demorar de
+     verdade (rede lenta, offline) — o caso comum é confirmar em
+     bem menos que isso, e mostrar toda hora só pisca a tela à toa. */
+  const [avisoFilaVisivel, setAvisoFilaVisivel] = useState(false);
+  useEffect(() => {
+    if (naFila === 0) {
+      setAvisoFilaVisivel(false);
+      return;
+    }
+    const t = setTimeout(() => setAvisoFilaVisivel(true), 600);
+    return () => clearTimeout(t);
+  }, [naFila > 0]);
+
   return (
     <>
       <div className="topo">
@@ -175,7 +197,7 @@ export default function Comanda() {
             <span className="sub">Toque no item para lançar</span>
           </h1>
         </div>
-        {naFila > 0 && (
+        {avisoFilaVisivel && (
           <p className="aviso-fila">
             {naFila} {naFila === 1 ? "item aguardando envio" : "itens aguardando envio"} — pode continuar lançando.
           </p>

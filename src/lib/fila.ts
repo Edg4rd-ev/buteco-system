@@ -26,10 +26,12 @@ export type Pendente = {
 const CHAVE = "buteco:fila";
 type Ouvinte = (fila: Pendente[]) => void;
 type OuvinteConfirmado = (lancamento: Lancamento) => void;
+type OuvinteErro = (pendente: Pendente) => void;
 
 let fila: Pendente[] = carregar();
 let ouvintes: Ouvinte[] = [];
 let ouvintesConfirmados: OuvinteConfirmado[] = [];
+let ouvintesErro: OuvinteErro[] = [];
 let rodando = false;
 
 function carregar(): Pendente[] {
@@ -64,6 +66,16 @@ export function assinarConfirmados(o: OuvinteConfirmado) {
   ouvintesConfirmados.push(o);
   return () => {
     ouvintesConfirmados = ouvintesConfirmados.filter((x) => x !== o);
+  };
+}
+
+/** Avisa quando um pendente é recusado de vez (regra, não rede) —
+ *  produto indisponível, comanda fechada etc. Sem isso o item só
+ *  sumia da fila em silêncio; o garçom nunca ficava sabendo. */
+export function assinarErros(o: OuvinteErro) {
+  ouvintesErro.push(o);
+  return () => {
+    ouvintesErro = ouvintesErro.filter((x) => x !== o);
   };
 }
 
@@ -114,7 +126,7 @@ export async function processar() {
         p.erro = msg;
         fila.shift();
         persistir();
-        ouvintes.forEach((o) => o([...fila]));
+        ouvintesErro.forEach((o) => o(p));
         console.error("Lançamento recusado:", msg, p);
       }
     }
