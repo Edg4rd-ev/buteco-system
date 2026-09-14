@@ -300,8 +300,8 @@ export async function lancarItem(args: {
   produtoId: number;
   quantidade?: number;
   observacao?: string | null;
-}) {
-  const { error } = await supabase.rpc("lancar_item", {
+}): Promise<Lancamento> {
+  const { data, error } = await supabase.rpc("lancar_item", {
     p_id: args.id,
     p_comanda: args.comandaId,
     p_produto: args.produtoId,
@@ -309,6 +309,7 @@ export async function lancarItem(args: {
     p_observacao: args.observacao ?? null,
   });
   if (error) throw error;
+  return data as Lancamento;
 }
 
 export async function cancelarLancamento(id: string, motivo: string, pin: string) {

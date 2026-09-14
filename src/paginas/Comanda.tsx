@@ -12,6 +12,7 @@ import {
   type Produto,
 } from "../lib/api";
 import {
+  assinarConfirmados,
   assinarFila,
   descartarPendente,
   enfileirar,
@@ -62,6 +63,14 @@ export default function Comanda() {
     void recarregar();
     const parar = assinarFila(setPendentes);
 
+    // some da fila e vira lançamento confirmado no mesmo instante —
+    // sem isso, entre sair da fila e o realtime recarregar, a
+    // contagem passava um instante em branco antes de assentar.
+    const pararConfirmados = assinarConfirmados((l) => {
+      if (l.comanda_id !== comandaId) return;
+      setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [...atual, l]));
+    });
+
     const canal = supabase
       .channel(`comanda-${comandaId}`)
       .on(
@@ -76,6 +85,7 @@ export default function Comanda() {
 
     return () => {
       parar();
+      pararConfirmados();
       void supabase.removeChannel(canal);
     };
   }, [comandaId, recarregar]);

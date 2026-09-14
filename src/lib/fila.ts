@@ -1,4 +1,4 @@
-import { lancarItem } from "./api";
+import { lancarItem, type Lancamento } from "./api";
 
 /**
  * Fila de lançamentos pendentes.
@@ -25,9 +25,11 @@ export type Pendente = {
 
 const CHAVE = "buteco:fila";
 type Ouvinte = (fila: Pendente[]) => void;
+type OuvinteConfirmado = (lancamento: Lancamento) => void;
 
 let fila: Pendente[] = carregar();
 let ouvintes: Ouvinte[] = [];
+let ouvintesConfirmados: OuvinteConfirmado[] = [];
 let rodando = false;
 
 function carregar(): Pendente[] {
@@ -48,6 +50,20 @@ export function assinarFila(o: Ouvinte) {
   o([...fila]);
   return () => {
     ouvintes = ouvintes.filter((x) => x !== o);
+  };
+}
+
+/**
+ * Avisa quando um pendente vira lançamento de verdade no banco.
+ * Existe pra tela poder trocar "pendente" por "confirmado" na mesma
+ * hora que ele sai da fila — sem isso, entre o `fila.shift()` e o
+ * realtime trazer a linha nova, a contagem passava por um instante
+ * em 0 (o item "sumia" antes do valor confirmado aparecer).
+ */
+export function assinarConfirmados(o: OuvinteConfirmado) {
+  ouvintesConfirmados.push(o);
+  return () => {
+    ouvintesConfirmados = ouvintesConfirmados.filter((x) => x !== o);
   };
 }
 
@@ -76,7 +92,7 @@ export async function processar() {
     while (fila.length) {
       const p = fila[0];
       try {
-        await lancarItem({
+        const confirmado = await lancarItem({
           id: p.id,
           comandaId: p.comandaId,
           produtoId: p.produtoId,
@@ -85,6 +101,7 @@ export async function processar() {
         });
         fila.shift();
         persistir();
+        ouvintesConfirmados.forEach((o) => o(confirmado));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         const semRede =
