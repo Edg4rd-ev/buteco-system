@@ -504,6 +504,16 @@ export async function registrarMovimentoCaixa(
   if (error) throw error;
 }
 
+/** Só o dono autoriza — exige o PIN dele, mesmo que quem esteja no aparelho seja outro. */
+export async function alterarTrocoInicial(valor: number, pin: string): Promise<SessaoCaixa> {
+  const { data, error } = await supabase.rpc("alterar_troco_inicial", {
+    p_valor: valor,
+    p_pin: pin,
+  });
+  if (error) throw error;
+  return data as SessaoCaixa;
+}
+
 /* ---------------- gestão: cardápio ---------------- */
 /* CRUD direto — RLS já exige papel dono/gerente (`e_gestor()`). */
 

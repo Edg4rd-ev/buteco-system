@@ -146,6 +146,8 @@ main{padding-bottom:104px}
   border-bottom:1px solid rgba(42,36,29,.12);font-size:15px}
 .linha .q{font-family:Oswald,sans-serif;color:var(--madeira);margin-right:8px}
 .linha .v{font-family:Oswald,sans-serif;font-variant-numeric:tabular-nums}
+.linha .v button.editar-inline{background:none;border:0;padding:0;margin-left:6px;
+  font-family:Karla,sans-serif;font-size:12.5px;text-decoration:underline;color:var(--dourado)}
 .soma{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 2px;
   font-family:Oswald,sans-serif;font-size:25px}
 .formas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}

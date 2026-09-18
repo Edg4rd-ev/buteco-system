@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   abrirSessaoCaixa,
+  alterarTrocoInicial,
   buscarFechamentoSessao,
   buscarMovimentosCaixa,
   buscarSalao,
@@ -151,6 +152,7 @@ function TurnoAberto({
 }) {
   const [modalMovimento, setModalMovimento] = useState<TipoMovimento | null>(null);
   const [fechando, setFechando] = useState(false);
+  const [editandoTroco, setEditandoTroco] = useState(false);
 
   const mesasAbertas = useMemo(() => mesas.filter((m) => m.comanda_id), [mesas]);
 
@@ -174,7 +176,10 @@ function TurnoAberto({
         </div>
         <div className="linha">
           <span>Troco inicial</span>
-          <span className="v">{dinheiro(sessao.troco_inicial)}</span>
+          <span className="v">
+            {dinheiro(sessao.troco_inicial)}
+            <button className="editar-inline" onClick={() => setEditandoTroco(true)}>editar</button>
+          </span>
         </div>
         <div className="linha">
           <span>Dia de evento</span>
@@ -259,6 +264,17 @@ function TurnoAberto({
           }}
         />
       )}
+
+      {editandoTroco && (
+        <ModalEditarTroco
+          trocoAtual={sessao.troco_inicial}
+          onFechar={() => setEditandoTroco(false)}
+          onConfirmar={async (valor, pin) => {
+            await alterarTrocoInicial(valor, pin);
+            onMudou();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -323,6 +339,71 @@ function ModalMovimento({
           <button className="principal" onClick={confirmar} disabled={enviando}>
             {enviando && <SpinnerBotao />}
             {enviando ? "Registrando…" : "Registrar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalEditarTroco({
+  trocoAtual,
+  onConfirmar,
+  onFechar,
+}: {
+  trocoAtual: number;
+  onConfirmar: (valor: number, pin: string) => Promise<void>;
+  onFechar: () => void;
+}) {
+  const [valor, setValor] = useState(trocoAtual.toFixed(2).replace(".", ","));
+  const [pin, setPin] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function confirmar() {
+    setErro(null);
+    const v = Number(valor.replace(",", "."));
+    if (Number.isNaN(v) || v < 0) return setErro("Troco inválido.");
+    if (!pin.trim()) return setErro("PIN do dono é obrigatório.");
+
+    setEnviando(true);
+    try {
+      await onConfirmar(v, pin.trim());
+      onFechar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível alterar o troco.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="fundo" onClick={onFechar} />
+      <div className="caixa">
+        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        <h3>Editar troco inicial</h3>
+        <p className="dica">Só o dono autoriza. Peça o PIN dele para confirmar.</p>
+
+        <label htmlFor="novo-troco">Novo troco inicial</label>
+        <input id="novo-troco" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
+
+        <label htmlFor="pin-troco">PIN do dono</label>
+        <input
+          id="pin-troco"
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+        />
+
+        {erro && <p className="erro">{erro}</p>}
+
+        <div className="acoes">
+          <button className="secundario" onClick={onFechar}>Voltar</button>
+          <button className="principal" onClick={confirmar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
+            {enviando ? "Salvando…" : "Confirmar"}
           </button>
         </div>
       </div>
