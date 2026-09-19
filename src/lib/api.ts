@@ -43,6 +43,13 @@ export type Produto = {
   ordem: number;
 };
 
+export type Mesa = {
+  id: number;
+  rotulo: string;
+  ordem: number;
+  ativa: boolean;
+};
+
 export type MesaSalao = {
   mesa_id: number;
   rotulo: string;
@@ -607,6 +614,33 @@ export async function alternarDisponibilidade(produtoId: number, disponivel: boo
     p_produto: produtoId,
     p_disponivel: disponivel,
   });
+  if (error) throw error;
+}
+
+/* ---------------- gestão: mesas ---------------- */
+/* CRUD direto — RLS já exige papel dono/gerente (`e_gestor()`), igual cardápio. */
+
+export async function buscarMesas(): Promise<Mesa[]> {
+  const { data, error } = await supabase.from("mesas").select("*").order("ordem");
+  if (error) throw error;
+  return (data ?? []) as Mesa[];
+}
+
+export async function criarMesa(args: { rotulo: string; ordem?: number }): Promise<Mesa> {
+  const { data, error } = await supabase
+    .from("mesas")
+    .insert({ rotulo: args.rotulo, ordem: args.ordem ?? 0 })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Mesa;
+}
+
+export async function atualizarMesa(
+  id: number,
+  patch: Partial<Pick<Mesa, "rotulo" | "ordem" | "ativa">>,
+) {
+  const { error } = await supabase.from("mesas").update(patch).eq("id", id);
   if (error) throw error;
 }
 

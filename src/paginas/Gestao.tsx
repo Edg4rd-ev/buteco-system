@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase, type Perfil } from "../lib/api";
 import Caixa from "./gestao/Caixa";
 import Cardapio from "./gestao/Cardapio";
+import Mesas from "./gestao/Mesas";
 import Relatorios from "./gestao/Relatorios";
 import Equipe from "./gestao/Equipe";
 
 const ABAS = [
   { id: "caixa", rotulo: "Caixa" },
   { id: "cardapio", rotulo: "Cardápio" },
+  { id: "mesas", rotulo: "Mesas" },
   { id: "relatorios", rotulo: "Relatórios" },
   { id: "equipe", rotulo: "Equipe" },
 ] as const;
@@ -47,6 +49,7 @@ export default function Gestao({ perfil }: { perfil: Perfil }) {
       <main className="gestao">
         {aba === "caixa" && <Caixa />}
         {aba === "cardapio" && <Cardapio />}
+        {aba === "mesas" && <Mesas />}
         {aba === "relatorios" && <Relatorios />}
         {aba === "equipe" && <Equipe perfilAtual={perfil} />}
       </main>
