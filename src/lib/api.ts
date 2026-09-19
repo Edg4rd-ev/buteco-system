@@ -48,12 +48,21 @@ export type MesaSalao = {
   rotulo: string;
   ordem: number;
   comanda_id: number | null;
+  apelido: string | null;
   aberta_em: string | null;
   pessoas: number | null;
   garcom: string | null;
   total: number;
   pago: number;
   itens: number;
+};
+
+export type ComandaInfo = {
+  id: number;
+  mesa_id: number;
+  status: "aberta" | "fechada";
+  apelido: string | null;
+  aberta_em: string;
 };
 
 export type Lancamento = {
@@ -156,6 +165,19 @@ export async function buscarSalao(): Promise<MesaSalao[]> {
   const { data, error } = await supabase.from("v_salao").select("*");
   if (error) throw error;
   return (data ?? []) as MesaSalao[];
+}
+
+/** Comanda aberta de uma mesa, se houver — usado pra saber se a mesa já
+ *  tem lançamento antes mesmo de tentar lançar o primeiro. */
+export async function buscarComandaAbertaDaMesa(mesaId: number): Promise<ComandaInfo | null> {
+  const { data, error } = await supabase
+    .from("comandas")
+    .select("id, mesa_id, status, apelido, aberta_em")
+    .eq("mesa_id", mesaId)
+    .eq("status", "aberta")
+    .maybeSingle();
+  if (error) throw error;
+  return data as ComandaInfo | null;
 }
 
 export async function buscarCardapio() {
@@ -464,6 +486,16 @@ export async function registrarPagamento(
 
 export async function fecharComanda(comandaId: number) {
   const { error } = await supabase.rpc("fechar_comanda", { p_comanda: comandaId });
+  if (error) throw error;
+}
+
+/** Apelido livre da comanda aberta ("da Marcia", "aniversário") — passar
+ *  string vazia limpa o apelido. Não mexe no rótulo físico da mesa. */
+export async function renomearComanda(comandaId: number, apelido: string) {
+  const { error } = await supabase.rpc("renomear_comanda", {
+    p_comanda: comandaId,
+    p_apelido: apelido,
+  });
   if (error) throw error;
 }
 

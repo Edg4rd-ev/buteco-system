@@ -1,4 +1,4 @@
-import { lancarItem, type Lancamento } from "./api";
+import { abrirComanda, lancarItem, type Lancamento } from "./api";
 
 /**
  * Fila de lançamentos pendentes.
@@ -7,13 +7,19 @@ import { lancarItem, type Lancamento } from "./api";
  * Como o id do lançamento é gerado aqui (uuid) e a function `lancar_item`
  * é idempotente, reenviar o mesmo item nunca duplica no banco.
  *
+ * A comanda em si só é criada no banco quando o PRIMEIRO item de uma mesa
+ * é de fato enviado — é por isso que o pendente carrega `mesaId`, não
+ * `comandaId`. Enquanto está só na fila (ou offline), nenhuma comanda
+ * existe ainda; tocar numa mesa livre e voltar sem lançar nada não deixa
+ * rastro nenhum no salão.
+ *
  * Fica em localStorage: se o app morrer no meio do salão, os pendentes
  * voltam na próxima abertura.
  */
 
 export type Pendente = {
   id: string;
-  comandaId: number;
+  mesaId: number;
   produtoId: number;
   nomeProduto: string;
   precoUnitario: number;
@@ -25,7 +31,7 @@ export type Pendente = {
 
 const CHAVE = "buteco:fila";
 type Ouvinte = (fila: Pendente[]) => void;
-type OuvinteConfirmado = (lancamento: Lancamento) => void;
+type OuvinteConfirmado = (lancamento: Lancamento, mesaId: number) => void;
 type OuvinteErro = (pendente: Pendente) => void;
 
 let fila: Pendente[] = carregar();
@@ -60,7 +66,9 @@ export function assinarFila(o: Ouvinte) {
  * Existe pra tela poder trocar "pendente" por "confirmado" na mesma
  * hora que ele sai da fila — sem isso, entre o `fila.shift()` e o
  * realtime trazer a linha nova, a contagem passava por um instante
- * em 0 (o item "sumia" antes do valor confirmado aparecer).
+ * em 0 (o item "sumia" antes do valor confirmado aparecer). Também é
+ * assim que a tela descobre o `comanda_id`, já que ele só existe a
+ * partir dessa confirmação.
  */
 export function assinarConfirmados(o: OuvinteConfirmado) {
   ouvintesConfirmados.push(o);
@@ -71,7 +79,7 @@ export function assinarConfirmados(o: OuvinteConfirmado) {
 
 /** Avisa quando um pendente é recusado de vez (regra, não rede) —
  *  produto indisponível, comanda fechada etc. Sem isso o item só
- *  sumia da fila em silêncio; o garçom nunca ficava sabendo. */
+ *  sumia da fila em silêncio; o garçom nunca fica sabendo. */
 export function assinarErros(o: OuvinteErro) {
   ouvintesErro.push(o);
   return () => {
@@ -79,8 +87,8 @@ export function assinarErros(o: OuvinteErro) {
   };
 }
 
-export function pendentesDaComanda(comandaId: number) {
-  return fila.filter((p) => p.comandaId === comandaId);
+export function pendentesDaMesa(mesaId: number) {
+  return fila.filter((p) => p.mesaId === mesaId);
 }
 
 export function enfileirar(item: Omit<Pendente, "tentativas">) {
@@ -100,20 +108,31 @@ export async function processar() {
   if (rodando || !navigator.onLine) return;
   rodando = true;
 
+  // válido só durante essa passada: evita chamar abrir_comanda de novo
+  // pra cada item de uma mesa que já ficou "aberta" nesta mesma leva.
+  // abrir_comanda é idempotente (devolve a comanda existente), então
+  // isso é só economia de round-trip, não uma questão de correção.
+  const comandaPorMesa = new Map<number, number>();
+
   try {
     while (fila.length) {
       const p = fila[0];
       try {
+        let comandaId = comandaPorMesa.get(p.mesaId);
+        if (comandaId === undefined) {
+          comandaId = await abrirComanda(p.mesaId);
+          comandaPorMesa.set(p.mesaId, comandaId);
+        }
         const confirmado = await lancarItem({
           id: p.id,
-          comandaId: p.comandaId,
+          comandaId,
           produtoId: p.produtoId,
           quantidade: p.quantidade,
           observacao: p.observacao,
         });
         fila.shift();
         persistir();
-        ouvintesConfirmados.forEach((o) => o(confirmado));
+        ouvintesConfirmados.forEach((o) => o(confirmado, p.mesaId));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         const semRede =
@@ -121,7 +140,7 @@ export async function processar() {
 
         if (semRede) break; // tenta de novo quando voltar
 
-        // erro de regra (produto indisponível, comanda fechada):
+        // erro de regra (produto indisponível, caixa fechado):
         // não adianta insistir, tira da fila e marca
         p.erro = msg;
         fila.shift();

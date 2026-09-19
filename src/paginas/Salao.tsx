@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  abrirComanda,
   buscarSalao,
   dinheiro,
   sessaoCaixaAberta,
@@ -52,13 +51,11 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
     };
   }, [recarregar]);
 
-  async function entrarNaMesa(m: MesaSalao) {
-    try {
-      const id = m.comanda_id ?? (await abrirComanda(m.mesa_id));
-      navegar(`/comanda/${id}?mesa=${encodeURIComponent(m.rotulo)}`);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível abrir a mesa.");
-    }
+  function entrarNaMesa(m: MesaSalao) {
+    // não cria comanda nenhuma aqui — só navega. A comanda só nasce no
+    // banco quando o primeiro item é de fato lançado (ver src/lib/fila.ts).
+    // Tocou e voltou sem lançar nada: não sobra rastro nenhum no salão.
+    navegar(`/mesa/${m.mesa_id}?mesa=${encodeURIComponent(m.rotulo)}`);
   }
 
   const abertas = mesas.filter((m) => m.comanda_id).length;
@@ -116,7 +113,7 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
                   </span>
                   <span className="estado">
                     {ocupada
-                      ? `${m.itens} ${m.itens === 1 ? "item" : "itens"} · ${tempoDesde(m.aberta_em)}`
+                      ? `${m.apelido ? `${m.apelido} · ` : ""}${m.itens} ${m.itens === 1 ? "item" : "itens"} · ${tempoDesde(m.aberta_em)}`
                       : "livre"}
                   </span>
                   <span className="valor">{ocupada ? dinheiro(Number(m.total)) : "—"}</span>

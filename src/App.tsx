@@ -14,7 +14,7 @@ function Rotas({ perfil }: { perfil: Perfil }) {
     <div key={location.pathname} className="pagina-transicao">
       <Routes location={location}>
         <Route path="/" element={<Salao perfil={perfil} />} />
-        <Route path="/comanda/:id" element={<Comanda />} />
+        <Route path="/mesa/:mesaId" element={<Comanda />} />
         <Route
           path="/gestao"
           element={

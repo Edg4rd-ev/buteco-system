@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   buscarCardapio,
+  buscarComandaAbertaDaMesa,
   buscarLancamentos,
   cancelarLancamento,
   dinheiro,
+  fecharComanda,
+  renomearComanda,
   semAcento,
   supabase,
   type Categoria,
@@ -19,14 +22,20 @@ import {
   enfileirar,
   type Pendente,
 } from "../lib/fila";
-import { ModalConta, ModalPin } from "../componentes/modais";
+import { ModalApelido, ModalConta, ModalPin } from "../componentes/modais";
 
 export default function Comanda() {
-  const { id } = useParams();
-  const comandaId = Number(id);
+  const { mesaId: mesaIdParam } = useParams();
+  const mesaId = Number(mesaIdParam);
   const [params] = useSearchParams();
   const rotuloMesa = params.get("mesa") ?? "";
   const navegar = useNavigate();
+
+  // a comanda só existe no banco a partir do primeiro lançamento confirmado
+  // (ou já existia, se a mesa estava ocupada quando entramos). Até lá fica
+  // null — não tem o que buscar, não tem o que fechar.
+  const [comandaId, setComandaId] = useState<number | null>(null);
+  const [apelido, setApelido] = useState<string | null>(null);
 
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -38,17 +47,19 @@ export default function Comanda() {
 
   const [pinPara, setPinPara] = useState<Lancamento | null>(null);
   const [contaAberta, setContaAberta] = useState(false);
+  const [apelidoAberto, setApelidoAberto] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const secoes = useRef<Record<number, HTMLElement | null>>({});
 
   /* Vários itens lançados em sequência rápida disparam um evento realtime
      por linha, e cada um chama recarregar() de novo. Essas buscas não são
-     sequenciadas — uma iniciada mais cedo (com menos linhas gravadas ainda)
-     pode responder depois de uma mais nova e sobrescrever o estado com
-     menos itens do que realmente tem. O contador de chamada garante que só
-     a resposta da chamada mais recente é aplicada; as demais são descartadas. */
+     sequenciadas — uma iniciada mais cedo pode responder depois de uma mais
+     nova e sobrescrever o estado com menos itens do que realmente tem. O
+     contador de chamada garante que só a resposta mais recente é aplicada. */
   const chamadaRecarregar = useRef(0);
 
   const recarregar = useCallback(async () => {
+    if (comandaId === null) return;
     const minhaChamada = ++chamadaRecarregar.current;
     try {
       const [ls, pg] = await Promise.all([
@@ -64,6 +75,7 @@ export default function Comanda() {
     }
   }, [comandaId]);
 
+  // uma vez por mesa: cardápio, fila local e descobrir se já tem comanda aberta
   useEffect(() => {
     void buscarCardapio()
       .then(({ categorias, produtos }) => {
@@ -72,31 +84,46 @@ export default function Comanda() {
       })
       .catch((e) => setErro(e instanceof Error ? e.message : "Falha no cardápio."));
 
-    void recarregar();
+    buscarComandaAbertaDaMesa(mesaId)
+      .then((c) => {
+        if (c) {
+          setComandaId(c.id);
+          setApelido(c.apelido);
+        }
+      })
+      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao abrir a mesa."));
+
     const parar = assinarFila(setPendentes);
 
-    // some da fila e vira lançamento confirmado no mesmo instante —
-    // sem isso, entre sair da fila e o realtime recarregar, a
-    // contagem passava um instante em branco antes de assentar.
-    const pararConfirmados = assinarConfirmados((l) => {
-      if (l.comanda_id !== comandaId) return;
+    // some da fila e vira lançamento confirmado no mesmo instante — é
+    // também assim que a tela descobre o comanda_id da primeira vez,
+    // já que ele só passa a existir quando o 1º item é confirmado.
+    const pararConfirmados = assinarConfirmados((l, mid) => {
+      if (mid !== mesaId) return;
+      setComandaId((atual) => atual ?? l.comanda_id);
       setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [...atual, l]));
     });
 
     // item recusado (regra, não rede) some da fila em silêncio — sem isso
     // o garçom nunca fica sabendo que o toque dele não valeu.
     const pararErros = assinarErros((p) => {
-      if (p.comandaId !== comandaId) return;
+      if (p.mesaId !== mesaId) return;
       setErro(`${p.nomeProduto} não foi lançado: ${p.erro}`);
+      // abrir_comanda pode ter criado a comanda mesmo o lançamento tendo
+      // falhado em seguida (produto ficou indisponível etc.) — reconfere
+      // pra não deixar a mesa "presa" ocupada e vazia sem jeito de fechar.
+      buscarComandaAbertaDaMesa(mesaId)
+        .then((c) => {
+          if (c) {
+            setComandaId((atual) => atual ?? c.id);
+            setApelido((atual) => atual ?? c.apelido);
+          }
+        })
+        .catch(() => {});
     });
 
-    const canal = supabase
-      .channel(`comanda-${comandaId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lancamentos", filter: `comanda_id=eq.${comandaId}` },
-        () => void recarregar(),
-      )
+    const canalProdutos = supabase
+      .channel(`mesa-${mesaId}-produtos`)
       .on("postgres_changes", { event: "*", schema: "public", table: "produtos" }, () =>
         void buscarCardapio().then(({ produtos }) => setProdutos(produtos)),
       )
@@ -106,14 +133,37 @@ export default function Comanda() {
       parar();
       pararConfirmados();
       pararErros();
-      void supabase.removeChannel(canal);
+      void supabase.removeChannel(canalProdutos);
     };
+  }, [mesaId]);
+
+  // só a partir do momento em que a comanda existe: busca o que já tem
+  // gravado e assina o realtime dela especificamente
+  useEffect(() => {
+    if (comandaId === null) return;
+    void recarregar();
+
+    const canal = supabase
+      .channel(`comanda-${comandaId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lancamentos", filter: `comanda_id=eq.${comandaId}` },
+        () => void recarregar(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "comandas", filter: `id=eq.${comandaId}` },
+        (payload) => setApelido((payload.new as { apelido: string | null }).apelido ?? null),
+      )
+      .subscribe();
+
+    return () => void supabase.removeChannel(canal);
   }, [comandaId, recarregar]);
 
   /* quantidade na tela = o que o banco já confirmou + o que está na fila */
   const meusPendentes = useMemo(
-    () => pendentes.filter((p) => p.comandaId === comandaId),
-    [pendentes, comandaId],
+    () => pendentes.filter((p) => p.mesaId === mesaId),
+    [pendentes, mesaId],
   );
 
   const contagem = useMemo(() => {
@@ -149,7 +199,7 @@ export default function Comanda() {
     if (!p.disponivel) return;
     enfileirar({
       id: crypto.randomUUID(),
-      comandaId,
+      mesaId,
       produtoId: p.id,
       nomeProduto: p.nome,
       precoUnitario: Number(p.preco),
@@ -171,6 +221,23 @@ export default function Comanda() {
     if (gravado) setPinPara(gravado);
   }
 
+  /* mesa foi aberta (existe comanda) mas nada chegou a ser lançado —
+     fecha sem PIN, porque não há nada pra proteger: nenhum valor foi
+     registrado. fechar_comanda já recusa sozinho se por acaso houver
+     algo pendente de pagamento. */
+  async function cancelarAbertura() {
+    if (comandaId === null) return;
+    setCancelando(true);
+    try {
+      await fecharComanda(comandaId);
+      navegar("/");
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível cancelar a abertura.");
+    } finally {
+      setCancelando(false);
+    }
+  }
+
   const filtrados = useMemo(() => {
     const f = semAcento(busca.trim());
     return categorias
@@ -184,6 +251,7 @@ export default function Comanda() {
   }, [categorias, produtos, busca]);
 
   const naFila = meusPendentes.length;
+  const mesaAbertaVazia = comandaId !== null && totalItens === 0;
 
   /* o aviso "aguardando envio" só aparece se o pendente demorar de
      verdade (rede lenta, offline) — o caso comum é confirmar em
@@ -205,9 +273,22 @@ export default function Comanda() {
           <button className="botao-topo" onClick={() => navegar("/")}>Salão</button>
           <h1>
             {rotuloMesa === "Balcão" ? "Balcão" : `Mesa ${rotuloMesa}`}
-            <span className="sub">Toque no item para lançar</span>
+            <span className="sub">{apelido || "Toque no item para lançar"}</span>
           </h1>
+          {comandaId !== null && (
+            <button className="botao-topo" onClick={() => setApelidoAberto(true)}>
+              {apelido ? "Renomear" : "+ Nome"}
+            </button>
+          )}
         </div>
+        {mesaAbertaVazia && (
+          <div className="aviso-fila aviso-linha">
+            <span>Mesa aberta, nada lançado ainda.</span>
+            <button className="botao-topo" onClick={cancelarAbertura} disabled={cancelando}>
+              {cancelando ? "Cancelando…" : "Cancelar abertura"}
+            </button>
+          </div>
+        )}
         {avisoFilaVisivel && (
           <p className="aviso-fila">
             {naFila} {naFila === 1 ? "item aguardando envio" : "itens aguardando envio"} — pode continuar lançando.
@@ -337,7 +418,18 @@ export default function Comanda() {
         />
       )}
 
-      {contaAberta && (
+      {apelidoAberto && comandaId !== null && (
+        <ModalApelido
+          apelidoAtual={apelido}
+          onFechar={() => setApelidoAberto(false)}
+          onConfirmar={async (novoApelido) => {
+            await renomearComanda(comandaId, novoApelido);
+            setApelido(novoApelido || null);
+          }}
+        />
+      )}
+
+      {contaAberta && comandaId !== null && (
         <ModalConta
           comandaId={comandaId}
           lancamentos={lancamentos}

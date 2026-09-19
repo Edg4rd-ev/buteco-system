@@ -9,6 +9,70 @@ import {
 import { SpinnerBotao } from "./Carregando";
 
 /* ------------------------------------------------------------------
+   Apelido — rótulo livre da comanda aberta ("da Marcia", "aniversário"),
+   só pra esse atendimento. Não mexe no número físico da mesa.
+------------------------------------------------------------------ */
+export function ModalApelido({
+  apelidoAtual,
+  onConfirmar,
+  onFechar,
+}: {
+  apelidoAtual: string | null;
+  onConfirmar: (apelido: string) => Promise<void>;
+  onFechar: () => void;
+}) {
+  const [valor, setValor] = useState(apelidoAtual ?? "");
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    setEnviando(true);
+    try {
+      await onConfirmar(valor.trim());
+      onFechar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="fundo" onClick={onFechar} />
+      <div className="caixa">
+        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        <h3>Nome da mesa</h3>
+        <p className="dica">
+          Só pra esse atendimento — some quando a conta fechar. Não muda o número da mesa.
+        </p>
+
+        <label htmlFor="apelido">Nome (opcional)</label>
+        <input
+          id="apelido"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          placeholder="da Márcia, aniversário…"
+          maxLength={40}
+          autoFocus
+        />
+
+        {erro && <p className="erro">{erro}</p>}
+
+        <div className="acoes">
+          <button className="secundario" onClick={onFechar}>Voltar</button>
+          <button className="principal" onClick={salvar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
+            {enviando ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
    PIN — cancelar lançamento já gravado.
    O dono está a três metros; ele digita o PIN no aparelho do garçom.
    Nada de aprovação assíncrona travando o atendimento.
