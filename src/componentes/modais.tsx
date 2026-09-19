@@ -5,8 +5,88 @@ import {
   registrarPagamento,
   type FormaPagamento,
   type Lancamento,
+  type Mesa,
 } from "../lib/api";
 import { SpinnerBotao } from "./Carregando";
+
+/* ------------------------------------------------------------------
+   Mesa — cadastrar ou editar mesa do salão (rótulo + ordem). Usado na
+   aba Mesas da Gestão e no card "+" do próprio Salão.
+------------------------------------------------------------------ */
+export function ModalMesa({
+  mesa,
+  ordemSugerida = 0,
+  onSalvar,
+  onFechar,
+}: {
+  mesa: Mesa | null;
+  ordemSugerida?: number;
+  onSalvar: (dados: { rotulo: string; ordem: number }) => Promise<void>;
+  onFechar: () => void;
+}) {
+  const [rotulo, setRotulo] = useState(mesa?.rotulo ?? "");
+  const [ordem, setOrdem] = useState(String(mesa?.ordem ?? ordemSugerida));
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function salvar() {
+    setErro(null);
+    if (!rotulo.trim()) return setErro("Número ou nome é obrigatório.");
+    const o = Number(ordem);
+    if (Number.isNaN(o)) return setErro("Ordem precisa ser um número.");
+
+    setEnviando(true);
+    try {
+      await onSalvar({ rotulo: rotulo.trim(), ordem: o });
+      onFechar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="fundo" onClick={onFechar} />
+      <div className="caixa">
+        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        <h3>{mesa ? "Editar mesa" : "Nova mesa"}</h3>
+        <p className="dica">
+          Aparece assim pro garçom no salão — "13" vira "Mesa 13"; "Balcão" ou
+          "Varanda" ficam do jeito que você escrever.
+        </p>
+
+        <label htmlFor="rotulo-mesa">Número ou nome</label>
+        <input
+          id="rotulo-mesa"
+          value={rotulo}
+          onChange={(e) => setRotulo(e.target.value)}
+          placeholder="13, Varanda, Área externa…"
+          autoFocus
+        />
+
+        <label htmlFor="ordem-mesa">Ordem de exibição</label>
+        <input
+          id="ordem-mesa"
+          inputMode="numeric"
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value)}
+        />
+
+        {erro && <p className="erro">{erro}</p>}
+
+        <div className="acoes">
+          <button className="secundario" onClick={onFechar}>Voltar</button>
+          <button className="principal" onClick={salvar} disabled={enviando}>
+            {enviando && <SpinnerBotao />}
+            {enviando ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------
    Apelido — rótulo livre da comanda aberta ("da Marcia", "aniversário"),

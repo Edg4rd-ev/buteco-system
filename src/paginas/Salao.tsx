@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   buscarSalao,
+  criarMesa,
   dinheiro,
   sessaoCaixaAberta,
   supabase,
@@ -10,13 +11,16 @@ import {
   type Perfil,
 } from "../lib/api";
 import Carregando from "../componentes/Carregando";
+import { ModalMesa } from "../componentes/modais";
 
 export default function Salao({ perfil }: { perfil: Perfil }) {
   const navegar = useNavigate();
+  const souGestor = perfil.papel === "dono" || perfil.papel === "gerente";
   const [mesas, setMesas] = useState<MesaSalao[]>([]);
   const [caixaAberto, setCaixaAberto] = useState(true);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [novaMesaAberta, setNovaMesaAberta] = useState(false);
 
   const recarregar = useCallback(async () => {
     try {
@@ -40,6 +44,7 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "lancamentos" }, () => void recarregar())
       .on("postgres_changes", { event: "*", schema: "public", table: "comandas" }, () => void recarregar())
       .on("postgres_changes", { event: "*", schema: "public", table: "pagamentos" }, () => void recarregar())
+      .on("postgres_changes", { event: "*", schema: "public", table: "mesas" }, () => void recarregar())
       .subscribe();
 
     // só para atualizar o "há quanto tempo"
@@ -69,7 +74,7 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
             Salão
             <span className="sub">{perfil.nome} · {perfil.papel}</span>
           </h1>
-          {(perfil.papel === "dono" || perfil.papel === "gerente") && (
+          {souGestor && (
             <button className="botao-topo" onClick={() => navegar("/gestao")}>Gestão</button>
           )}
           <button className="botao-topo" onClick={() => supabase.auth.signOut()}>Sair</button>
@@ -120,9 +125,31 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
                 </button>
               );
             })}
+            {souGestor && (
+              <button
+                className="mesa nova"
+                onClick={() => setNovaMesaAberta(true)}
+                style={{ animationDelay: `${Math.min(mesas.length * 25, 300)}ms` }}
+              >
+                <span className="mais">+</span>
+                <span className="rotulo-nova">Nova mesa</span>
+              </button>
+            )}
           </div>
         )}
       </main>
+
+      {novaMesaAberta && (
+        <ModalMesa
+          mesa={null}
+          ordemSugerida={mesas.reduce((max, m) => Math.max(max, m.ordem), 0) + 1}
+          onFechar={() => setNovaMesaAberta(false)}
+          onSalvar={async (dados) => {
+            await criarMesa(dados);
+            await recarregar();
+          }}
+        />
+      )}
     </>
   );
 }

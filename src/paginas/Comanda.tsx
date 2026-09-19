@@ -276,8 +276,12 @@ export default function Comanda() {
             <span className="sub">{apelido || "Toque no item para lançar"}</span>
           </h1>
           {comandaId !== null && (
-            <button className="botao-topo" onClick={() => setApelidoAberto(true)}>
-              {apelido ? "Renomear" : "+ Nome"}
+            <button
+              className="botao-icone"
+              onClick={() => setApelidoAberto(true)}
+              aria-label={apelido ? "Renomear mesa" : "Dar nome à mesa"}
+            >
+              ✎
             </button>
           )}
         </div>

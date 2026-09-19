@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { atualizarMesa, buscarMesas, criarMesa, type Mesa } from "../../lib/api";
-import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
+import Carregando from "../../componentes/Carregando";
+import { ModalMesa } from "../../componentes/modais";
 
 export default function Mesas() {
   const [mesas, setMesas] = useState<Mesa[]>([]);
@@ -79,79 +80,6 @@ export default function Mesas() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-function ModalMesa({
-  mesa,
-  onSalvar,
-  onFechar,
-}: {
-  mesa: Mesa | null;
-  onSalvar: (dados: { rotulo: string; ordem: number }) => Promise<void>;
-  onFechar: () => void;
-}) {
-  const [rotulo, setRotulo] = useState(mesa?.rotulo ?? "");
-  const [ordem, setOrdem] = useState(String(mesa?.ordem ?? 0));
-  const [erro, setErro] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
-
-  async function salvar() {
-    setErro(null);
-    if (!rotulo.trim()) return setErro("Número ou nome é obrigatório.");
-    const o = Number(ordem);
-    if (Number.isNaN(o)) return setErro("Ordem precisa ser um número.");
-
-    setEnviando(true);
-    try {
-      await onSalvar({ rotulo: rotulo.trim(), ordem: o });
-      onFechar();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  return (
-    <div className="modal" role="dialog" aria-modal="true">
-      <div className="fundo" onClick={onFechar} />
-      <div className="caixa">
-        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
-        <h3>{mesa ? "Editar mesa" : "Nova mesa"}</h3>
-        <p className="dica">
-          Aparece assim pro garçom no salão — "13" vira "Mesa 13"; "Balcão" ou
-          "Varanda" ficam do jeito que você escrever.
-        </p>
-
-        <label htmlFor="rotulo-mesa">Número ou nome</label>
-        <input
-          id="rotulo-mesa"
-          value={rotulo}
-          onChange={(e) => setRotulo(e.target.value)}
-          placeholder="13, Varanda, Área externa…"
-          autoFocus
-        />
-
-        <label htmlFor="ordem-mesa">Ordem de exibição</label>
-        <input
-          id="ordem-mesa"
-          inputMode="numeric"
-          value={ordem}
-          onChange={(e) => setOrdem(e.target.value)}
-        />
-
-        {erro && <p className="erro">{erro}</p>}
-
-        <div className="acoes">
-          <button className="secundario" onClick={onFechar}>Voltar</button>
-          <button className="principal" onClick={salvar} disabled={enviando}>
-            {enviando && <SpinnerBotao />}
-            {enviando ? "Salvando…" : "Salvar"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
