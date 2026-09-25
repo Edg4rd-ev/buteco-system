@@ -4,6 +4,7 @@ import {
   atualizarCategoria,
   atualizarProduto,
   buscarCardapioCompleto,
+  centavos,
   criarCategoria,
   criarProduto,
   dinheiro,
@@ -12,6 +13,8 @@ import {
   type Produto,
 } from "../../lib/api";
 import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
+import { useDesktop } from "../../lib/tela";
+import InputDinheiro from "../../componentes/InputDinheiro";
 
 const DESTINOS: { id: Destino; rotulo: string }[] = [
   { id: "chapa", rotulo: "Chapa" },
@@ -55,7 +58,161 @@ export default function Cardapio() {
     return m;
   }, [produtos]);
 
+  /* desktop: duas colunas — categorias à esquerda, produtos em tabela à direita */
+  const desktop = useDesktop();
+  const [categoriaSel, setCategoriaSel] = useState<number | null>(null);
+  const [busca, setBusca] = useState("");
+
   if (carregando) return <Carregando texto="Carregando o cardápio…" />;
+
+  const modais = (
+    <>
+      {categoriaAberta !== null && (
+        <ModalCategoria
+          categoria={categoriaAberta === "nova" ? null : categorias.find((c) => c.id === categoriaAberta) ?? null}
+          onFechar={() => setCategoriaAberta(null)}
+          onSalvar={async (dados) => {
+            if (categoriaAberta === "nova") await criarCategoria(dados);
+            else await atualizarCategoria(categoriaAberta, dados);
+            await recarregar();
+          }}
+        />
+      )}
+
+      {produtoAberto && (
+        <ModalProduto
+          produto={produtoAberto.produto}
+          categoriaId={produtoAberto.categoriaId}
+          onFechar={() => setProdutoAberto(null)}
+          onSalvar={async (dados) => {
+            if (produtoAberto.produto) await atualizarProduto(produtoAberto.produto.id, dados);
+            else await criarProduto({ ...dados, categoria_id: produtoAberto.categoriaId });
+            await recarregar();
+          }}
+        />
+      )}
+    </>
+  );
+
+  if (desktop) {
+    const cat = categorias.find((c) => c.id === categoriaSel) ?? categorias[0] ?? null;
+    const termo = busca.trim().toLowerCase();
+    // com busca, procura no cardápio inteiro; sem busca, mostra a categoria escolhida
+    const linhas = termo
+      ? produtos.filter((p) => p.nome.toLowerCase().includes(termo))
+      : cat ? produtosPorCategoria.get(cat.id) ?? [] : [];
+    const nomeCategoria = (id: number) => categorias.find((c) => c.id === id)?.nome ?? "";
+
+    return (
+      <div className="painel painel-cardapio">
+        {erro && <p className="aviso-fila">{erro}</p>}
+
+        <aside className="cartao lista-categorias">
+          <div className="cabecalho-cartao">
+            <h2>Categorias</h2>
+            <button className="botao-topo" onClick={() => setCategoriaAberta("nova")}>+ Nova</button>
+          </div>
+          {categorias.map((c) => (
+            <button
+              key={c.id}
+              className="item-categoria"
+              aria-current={!termo && cat?.id === c.id ? "true" : undefined}
+              style={{ opacity: c.ativa ? 1 : 0.55 }}
+              onClick={() => {
+                setBusca("");
+                setCategoriaSel(c.id);
+              }}
+            >
+              <span>{c.nome}</span>
+              <span className="contagem num">{produtosPorCategoria.get(c.id)?.length ?? 0}</span>
+            </button>
+          ))}
+        </aside>
+
+        <section className="cartao">
+          <div className="cabecalho-produtos">
+            <label className="busca-desktop">
+              <span className="sr-only">Buscar produto</span>
+              <input
+                type="search"
+                placeholder="Buscar produto no cardápio todo…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+            </label>
+            {!termo && cat && (
+              <div className="acoes-produto">
+                <span className="badge">{DESTINOS.find((d) => d.id === cat.destino)?.rotulo}</span>
+                <button className="botao-topo" onClick={() => setCategoriaAberta(cat.id)}>Editar categoria</button>
+                <button className="botao-topo" onClick={() => atualizarCategoria(cat.id, { ativa: !cat.ativa }).then(recarregar)}>
+                  {cat.ativa ? "Desativar" : "Reativar"}
+                </button>
+                <button
+                  className="acao"
+                  onClick={() => setProdutoAberto({ categoriaId: cat.id, produto: null })}
+                >
+                  + Novo produto
+                </button>
+              </div>
+            )}
+          </div>
+
+          <h2 style={{ marginTop: 18 }}>
+            {termo ? `${linhas.length} ${linhas.length === 1 ? "resultado" : "resultados"}` : cat?.nome ?? "Sem categorias"}
+          </h2>
+
+          {linhas.length === 0 ? (
+            <p className="dica">{termo ? "Nada com esse nome." : "Nenhum produto nessa categoria ainda."}</p>
+          ) : (
+            <table className="tabela">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  {termo && <th>Categoria</th>}
+                  <th className="dir">Preço</th>
+                  <th>Situação</th>
+                  <th className="estreita"><span className="sr-only">Editar</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.map((p) => (
+                  <tr key={p.id} style={{ opacity: p.ativo ? 1 : 0.5 }}>
+                    <td>
+                      {p.nome}
+                      {p.observacao && <span className="obs-linha">{p.observacao}</span>}
+                      {!p.ativo && <span className="obs-linha">removido do cardápio</span>}
+                    </td>
+                    {termo && <td className="fraco">{nomeCategoria(p.categoria_id)}</td>}
+                    <td className="dir num">{dinheiro(p.preco)}</td>
+                    <td>
+                      <button
+                        aria-pressed={p.disponivel}
+                        className="chip-toggle"
+                        onClick={() => alternarDisponibilidade(p.id, !p.disponivel).then(recarregar)}
+                      >
+                        {p.disponivel ? "Disponível" : "Acabou"}
+                      </button>
+                    </td>
+                    <td className="estreita">
+                      <button
+                        className="botao-icone"
+                        aria-label={`Editar ${p.nome}`}
+                        onClick={() => setProdutoAberto({ categoriaId: p.categoria_id, produto: p })}
+                      >
+                        ✎
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        {modais}
+      </div>
+    );
+  }
 
   return (
     <div className="painel">
@@ -121,30 +278,7 @@ export default function Cardapio() {
         </section>
       ))}
 
-      {categoriaAberta !== null && (
-        <ModalCategoria
-          categoria={categoriaAberta === "nova" ? null : categorias.find((c) => c.id === categoriaAberta) ?? null}
-          onFechar={() => setCategoriaAberta(null)}
-          onSalvar={async (dados) => {
-            if (categoriaAberta === "nova") await criarCategoria(dados);
-            else await atualizarCategoria(categoriaAberta, dados);
-            await recarregar();
-          }}
-        />
-      )}
-
-      {produtoAberto && (
-        <ModalProduto
-          produto={produtoAberto.produto}
-          categoriaId={produtoAberto.categoriaId}
-          onFechar={() => setProdutoAberto(null)}
-          onSalvar={async (dados) => {
-            if (produtoAberto.produto) await atualizarProduto(produtoAberto.produto.id, dados);
-            else await criarProduto({ ...dados, categoria_id: produtoAberto.categoriaId });
-            await recarregar();
-          }}
-        />
-      )}
+      {modais}
     </div>
   );
 }
@@ -231,24 +365,24 @@ function ModalProduto({
 }) {
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [observacao, setObservacao] = useState(produto?.observacao ?? "");
-  const [preco, setPreco] = useState(produto ? Number(produto.preco).toFixed(2).replace(".", ",") : "");
+  const [preco, setPreco] = useState(() => (produto ? centavos(produto.preco) : 0));
   const [ordem, setOrdem] = useState(String(produto?.ordem ?? 0));
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const precoMudou = produto ? Number(preco.replace(",", ".")) !== Number(produto.preco) : false;
+  const precoMudou = produto ? preco !== centavos(produto.preco) : false;
 
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro("Nome é obrigatório.");
-    const p = Number(preco.replace(",", "."));
-    if (Number.isNaN(p) || p < 0) return setErro("Preço inválido.");
+    // o campo começa em R$ 0,00 — produto de graça quase sempre é preço esquecido
+    if (preco <= 0) return setErro("Informe o preço.");
     const o = Number(ordem);
     if (Number.isNaN(o)) return setErro("Ordem precisa ser um número.");
 
     setEnviando(true);
     try {
-      await onSalvar({ nome: nome.trim(), observacao: observacao.trim() || null, preco: p, ordem: o });
+      await onSalvar({ nome: nome.trim(), observacao: observacao.trim() || null, preco, ordem: o });
       onFechar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
@@ -290,7 +424,7 @@ function ModalProduto({
         <input id="obs-prod" value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="500ml, serve 2…" />
 
         <label htmlFor="preco-prod">Preço</label>
-        <input id="preco-prod" inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)} />
+        <InputDinheiro id="preco-prod" valor={preco} onChange={setPreco} />
         {precoMudou && (
           <p className="dica" style={{ color: "var(--dourado-fosco)" }}>
             Comandas já abertas mantêm o preço antigo — o lançamento congela o valor na hora.

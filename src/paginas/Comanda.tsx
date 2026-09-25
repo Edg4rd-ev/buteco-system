@@ -6,6 +6,7 @@ import {
   buscarLancamentos,
   cancelarLancamento,
   dinheiro,
+  valorBr,
   fecharComanda,
   renomearComanda,
   semAcento,
@@ -367,7 +368,7 @@ export default function Comanda() {
                       </button>
                       <span className="preco">
                         <small>R$</small>
-                        {Number(p.preco).toFixed(2).replace(".", ",")}
+                        {valorBr(p.preco)}
                       </span>
                       <button
                         className="tirar"

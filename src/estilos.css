@@ -234,3 +234,124 @@ main{padding-bottom:104px}
 .carregando{padding:60px 20px;text-align:center;color:#9E9280;
   display:flex;flex-direction:column;align-items:center;gap:12px}
 .carregando .spinner{color:var(--dourado);width:24px;height:24px;border-width:3px}
+
+/* ---------------- desktop ----------------
+   Tudo abaixo só vale de 1024px pra cima (mesmo corte de src/lib/tela.ts).
+   O celular continua sendo a tela de referência; aqui só se reorganiza o
+   espaço: menu lateral na gestão, grades e tabelas no lugar de listas. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.lateral,.cabecalho-desktop{display:none}
+
+@media (min-width: 1024px){
+  /* gestão: menu lateral + conteúdo */
+  .gestao-app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+  .gestao-conteudo > .topo{display:none}
+  .lateral{display:flex;flex-direction:column;gap:24px;position:sticky;top:0;height:100vh;
+    padding:22px 14px;background:#1B1712;border-right:1px solid rgba(244,237,223,.1)}
+  .lateral-marca{display:flex;align-items:center;gap:10px;padding:0 8px;
+    font-family:Oswald,sans-serif;font-size:20px;font-weight:500}
+  .lateral-nav{display:flex;flex-direction:column;gap:2px}
+  .lateral-item{text-align:left;padding:10px 12px;border-radius:10px;font-size:15px;color:#C7BCA8}
+  .lateral-item:hover{background:rgba(244,237,223,.06);color:var(--espuma)}
+  .lateral-item[aria-current="page"]{background:rgba(240,180,41,.14);color:var(--dourado);font-weight:700}
+  .lateral-rodape{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+  .lateral-rodape .botao-topo{text-align:left}
+  .lateral-usuario{padding:4px 8px;font-size:14px;display:flex;flex-direction:column}
+  .lateral-usuario .sub{font-size:12.5px;color:#9E9280}
+
+  .cabecalho-desktop{display:flex;align-items:baseline;gap:14px;
+    width:min(1240px,100%);padding:32px 40px 0}
+  .cabecalho-desktop h1{font-size:30px}
+  .cabecalho-desktop .sub{font-size:14px;color:#9E9280}
+
+  main.gestao{padding-bottom:48px}
+  main.gestao .painel{width:min(1240px,100%);margin:0;padding:22px 40px 40px;gap:16px}
+  .cartao{padding:20px 22px}
+  .botao-topo:hover,.botao-icone:hover{background:rgba(244,237,223,.06)}
+
+  /* modais viram diálogo centralizado em vez de folha subindo */
+  .modal{display:grid;place-items:center;padding:24px}
+  .caixa{position:relative;inset:auto;width:min(480px,100%);max-height:86vh;border-radius:16px;
+    padding:26px 24px}
+
+  /* caixa: turno e sangria à esquerda, fechamento à direita */
+  .painel-caixa{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .painel-caixa > .aviso-fila{grid-column:1/-1}
+  .painel-caixa > .fechar-turno{grid-column:2;grid-row:1 / span 2}
+  .painel-caixa > .abrir-turno{max-width:520px}
+
+  /* mesas: grade de cartões */
+  .lista-mesas{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .lista-mesas .linha-produto{border:1px solid rgba(244,237,223,.1);border-radius:12px;padding:12px 14px}
+  .lista-mesas .linha-produto:last-child{border-bottom:1px solid rgba(244,237,223,.1)}
+  .painel-mesas > .acoes{max-width:260px}
+
+  /* equipe: lista larga, PIN ao lado */
+  .painel-equipe{display:grid!important;grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+  .painel-equipe > .aviso-fila{grid-column:1/-1}
+  .painel-equipe > .meu-pin{grid-column:2;grid-row:1}
+  .painel-equipe > .cartao:not(.meu-pin){grid-column:1;grid-row:1}
+  .painel-equipe .linha-equipe{grid-template-columns:1fr 160px 120px;gap:14px}
+
+  /* cardápio: categorias | produtos */
+  .painel-cardapio{display:grid!important;grid-template-columns:260px minmax(0,1fr);align-items:start}
+  .painel-cardapio > .aviso-fila{grid-column:1/-1}
+  .lista-categorias{position:sticky;top:20px;display:flex;flex-direction:column;gap:2px;
+    max-height:calc(100vh - 40px);overflow:auto}
+  .item-categoria{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    text-align:left;padding:9px 10px;border-radius:9px;font-size:14.5px;color:#C7BCA8}
+  .item-categoria:hover{background:rgba(244,237,223,.06)}
+  .item-categoria[aria-current="true"]{background:rgba(240,180,41,.14);color:var(--dourado);font-weight:700}
+  .item-categoria .contagem{font-size:13px;color:#9E9280;font-weight:400}
+  .cabecalho-produtos{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .busca-desktop{flex:1;min-width:240px;max-width:420px}
+  .busca-desktop input{width:100%;padding:10px 14px;border-radius:10px;background:var(--carvao);
+    border:1px solid rgba(244,237,223,.16);color:var(--espuma);font-size:15px}
+  .cabecalho-produtos .acao{padding:9px 14px;font-size:14px}
+
+  /* tabelas (cardápio e relatórios) */
+  .tabela-rolagem{overflow-x:auto}
+  .tabela{width:100%;border-collapse:collapse;font-size:14.5px}
+  .tabela th{text-align:left;font-weight:500;font-size:12.5px;color:#9E9280;
+    padding:8px 10px;border-bottom:1px solid rgba(244,237,223,.14);white-space:nowrap}
+  .tabela td{padding:10px;border-bottom:1px solid rgba(244,237,223,.07);vertical-align:middle}
+  .tabela tbody tr:last-child td{border-bottom:0}
+  .tabela tbody tr:hover td{background:rgba(244,237,223,.03)}
+  .tabela .dir{text-align:right}
+  .tabela .estreita{width:1%;white-space:nowrap}
+  .tabela .fraco{color:#B9AE9B}
+  .tabela td.num{font-family:Oswald,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tabela .chip-toggle{min-height:32px;padding:5px 11px}
+
+  /* relatórios */
+  .barra-filtros{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  .barra-filtros .sub-nav{align-self:center}
+  .filtro-periodo{flex:1;min-width:240px;max-width:380px}
+  .filtro-periodo label{margin-top:0}
+  .acoes-export{display:flex;gap:8px;margin-left:auto}
+  .acoes-export .botao-topo:disabled{opacity:.45;cursor:not-allowed}
+  .titulo-periodo{font-size:20px;margin-top:6px}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .kpi{background:var(--ferro);border:1px solid rgba(244,237,223,.1);border-radius:14px;padding:16px 18px}
+  .kpi span{display:block;font-size:13px;color:#9E9280}
+  .kpi strong{display:block;font-family:Oswald,sans-serif;font-size:30px;font-weight:500;margin-top:4px}
+  .kpi:first-child strong{color:var(--dourado)}
+  .grade-relatorio{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start}
+  .barras{display:flex;flex-direction:column;gap:12px}
+  .barra-linha{display:grid;grid-template-columns:70px minmax(0,1fr) 100px 40px;align-items:center;gap:12px;font-size:14.5px}
+  .barra-trilho{display:block;height:10px;border-radius:4px;background:rgba(244,237,223,.07);overflow:hidden}
+  .barra-valor{display:block;height:100%;border-radius:4px;background:var(--dourado);min-width:2px}
+  .barra-numero{text-align:right;font-family:Oswald,sans-serif}
+  .barra-pct{text-align:right;color:#9E9280;font-size:13px}
+  .participacao{display:grid;grid-template-columns:minmax(80px,160px) 48px;align-items:center;gap:10px;
+    font-family:Oswald,sans-serif;font-size:13px;color:#B9AE9B}
+  .participacao .barra-trilho{height:8px}
+  .participacao .num{text-align:right}
+
+  /* salão mais largo: cabem mais mesas por linha */
+  .topo-largo .dentro,.topo-largo .aviso-fila,.salao{width:min(1240px,100%)}
+  .salao{padding:24px 24px 48px}
+  .salao .metricas{max-width:520px}
+  .salao .mesas{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+  .mesa:not(:disabled):hover{border-color:rgba(240,180,41,.55)}
+}

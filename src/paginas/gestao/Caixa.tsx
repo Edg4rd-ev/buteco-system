@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   abrirSessaoCaixa,
   alterarTrocoInicial,
+  centavos,
   buscarFechamentoSessao,
   buscarMovimentosCaixa,
   buscarSalao,
@@ -18,6 +19,7 @@ import {
   type TipoMovimento,
 } from "../../lib/api";
 import Carregando, { SpinnerBotao } from "../../componentes/Carregando";
+import InputDinheiro from "../../componentes/InputDinheiro";
 
 export default function Caixa() {
   const [sessao, setSessao] = useState<SessaoCaixa | null>(null);
@@ -63,7 +65,7 @@ export default function Caixa() {
   if (carregando) return <Carregando texto="Carregando o caixa…" />;
 
   return (
-    <div className="painel">
+    <div className="painel painel-caixa">
       {erro && <p className="aviso-fila">{erro}</p>}
       {sessao ? (
         <TurnoAberto
@@ -81,22 +83,19 @@ export default function Caixa() {
 }
 
 function AbrirTurno({ onAbriu }: { onAbriu: () => void }) {
-  const [troco, setTroco] = useState("100,00");
+  const [troco, setTroco] = useState(100);
   const [evento, setEvento] = useState(false);
-  const [couvert, setCouvert] = useState("0,00");
+  const [couvert, setCouvert] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   async function abrir() {
     setErro(null);
-    const vTroco = Number(troco.replace(",", "."));
-    const vCouvert = Number(couvert.replace(",", "."));
-    if (Number.isNaN(vTroco) || vTroco < 0) return setErro("Troco inválido.");
-    if (evento && (Number.isNaN(vCouvert) || vCouvert < 0)) return setErro("Valor do couvert inválido.");
+    if (evento && couvert <= 0) return setErro("Informe o valor do couvert.");
 
     setEnviando(true);
     try {
-      await abrirSessaoCaixa({ troco: vTroco, evento, couvert: evento ? vCouvert : 0 });
+      await abrirSessaoCaixa({ troco, evento, couvert: evento ? couvert : 0 });
       onAbriu();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível abrir o turno.");
@@ -106,12 +105,12 @@ function AbrirTurno({ onAbriu }: { onAbriu: () => void }) {
   }
 
   return (
-    <section className="cartao">
+    <section className="cartao abrir-turno">
       <h2>Abrir turno</h2>
       <p className="dica">Sem turno aberto, ninguém lança item no salão.</p>
 
       <label htmlFor="troco">Troco inicial</label>
-      <input id="troco" inputMode="decimal" value={troco} onChange={(e) => setTroco(e.target.value)} />
+      <InputDinheiro id="troco" valor={troco} onChange={setTroco} />
 
       <label className="linha-toggle">
         <input type="checkbox" checked={evento} onChange={(e) => setEvento(e.target.checked)} />
@@ -121,7 +120,7 @@ function AbrirTurno({ onAbriu }: { onAbriu: () => void }) {
       {evento && (
         <>
           <label htmlFor="couvert">Valor do couvert por pessoa</label>
-          <input id="couvert" inputMode="decimal" value={couvert} onChange={(e) => setCouvert(e.target.value)} />
+          <InputDinheiro id="couvert" valor={couvert} onChange={setCouvert} />
         </>
       )}
 
@@ -211,7 +210,7 @@ function TurnoAberto({
         )}
       </section>
 
-      <section className="cartao">
+      <section className="cartao fechar-turno">
         <h2>Fechar turno</h2>
 
         {fechamento && (
@@ -288,20 +287,19 @@ function ModalMovimento({
   onConfirmar: (valor: number, motivo: string) => Promise<void>;
   onFechar: () => void;
 }) {
-  const [valor, setValor] = useState("");
+  const [valor, setValor] = useState(0);
   const [motivo, setMotivo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   async function confirmar() {
     setErro(null);
-    const v = Number(valor.replace(",", "."));
-    if (!v || v <= 0) return setErro("Informe o valor.");
+    if (valor <= 0) return setErro("Informe o valor.");
     if (!motivo.trim()) return setErro("Motivo é obrigatório.");
 
     setEnviando(true);
     try {
-      await onConfirmar(v, motivo.trim());
+      await onConfirmar(valor, motivo.trim());
       onFechar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível registrar.");
@@ -322,7 +320,7 @@ function ModalMovimento({
         </p>
 
         <label htmlFor="valor-mov">Valor</label>
-        <input id="valor-mov" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
+        <InputDinheiro id="valor-mov" valor={valor} onChange={setValor} />
 
         <label htmlFor="motivo-mov">Motivo</label>
         <input
@@ -355,20 +353,18 @@ function ModalEditarTroco({
   onConfirmar: (valor: number, pin: string) => Promise<void>;
   onFechar: () => void;
 }) {
-  const [valor, setValor] = useState(trocoAtual.toFixed(2).replace(".", ","));
+  const [valor, setValor] = useState(() => centavos(trocoAtual));
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   async function confirmar() {
     setErro(null);
-    const v = Number(valor.replace(",", "."));
-    if (Number.isNaN(v) || v < 0) return setErro("Troco inválido.");
     if (!pin.trim()) return setErro("PIN do dono é obrigatório.");
 
     setEnviando(true);
     try {
-      await onConfirmar(v, pin.trim());
+      await onConfirmar(valor, pin.trim());
       onFechar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível alterar o troco.");
@@ -386,7 +382,7 @@ function ModalEditarTroco({
         <p className="dica">Só o dono autoriza. Peça o PIN dele para confirmar.</p>
 
         <label htmlFor="novo-troco">Novo troco inicial</label>
-        <input id="novo-troco" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
+        <InputDinheiro id="novo-troco" valor={valor} onChange={setValor} />
 
         <label htmlFor="pin-troco">PIN do dono</label>
         <input
@@ -420,18 +416,15 @@ function ModalFechamento({
   onConfirmar: (valorConferido: number, observacao: string | null) => Promise<void>;
   onFechar: () => void;
 }) {
-  const [valor, setValor] = useState(esperado.toFixed(2));
+  const [conferido, setConferido] = useState(() => centavos(esperado));
   const [observacao, setObservacao] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const conferido = Number(valor.replace(",", "."));
-  const diferenca = (Number.isNaN(conferido) ? 0 : conferido) - esperado;
+  const diferenca = centavos(conferido - esperado);
 
   async function confirmar() {
     setErro(null);
-    if (Number.isNaN(conferido) || conferido < 0) return setErro("Informe o valor conferido na gaveta.");
-
     setEnviando(true);
     try {
       await onConfirmar(conferido, observacao.trim() || null);
@@ -454,7 +447,7 @@ function ModalFechamento({
         <div className="soma"><span>Esperado</span><span className="num">{dinheiro(esperado)}</span></div>
 
         <label htmlFor="conferido">Valor conferido na gaveta</label>
-        <input id="conferido" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} />
+        <InputDinheiro id="conferido" valor={conferido} onChange={setConferido} />
 
         <div className="linha">
           <span>Diferença</span>

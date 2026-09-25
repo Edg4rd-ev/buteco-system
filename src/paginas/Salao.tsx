@@ -68,7 +68,7 @@ export default function Salao({ perfil }: { perfil: Perfil }) {
 
   return (
     <>
-      <div className="topo">
+      <div className="topo topo-largo">
         <div className="dentro">
           <h1>
             Salão

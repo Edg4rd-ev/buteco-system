@@ -6,10 +6,14 @@ pequeno, fundo escuro e peso de arquivo.
 
 | Arquivo | Onde usar |
 |---|---|
-| `logo-seu-barba.svg` | header, login, splash — **acima de 80px** |
-| `logo-seu-barba-icone.svg` | favicon, ícone do PWA — **abaixo de 80px** |
-| `logo-seu-barba-1024.png` | raster (e-mail, WhatsApp) |
-| `icone-192.png` / `icone-32.png` | manifest do PWA e favicon |
+| `logo-seu-barba.svg` | login, abertura, menu da gestão, favicon |
+| `logo-seu-barba-32/180/192/512/1024.png` | favicon, ícone do iPhone (180), manifest do PWA |
+| `logo-seu-barba-icone.svg`, `icone-*.png` | **fora de uso** — sobra da versão sem nome |
+
+> Decisão do dono (set/2026): o app usa **sempre o logo com o nome**, inclusive
+> no favicon e no ícone de instalação, mesmo onde o texto fica pequeno demais
+> pra ler. Os PNGs de 32/180/192 foram reduzidos do de 1024 (o `gerar_logo.py`
+> ainda não gera esses tamanhos).
 | `gerar_logo.py` | regenera tudo |
 
 ## Duas versões, por quê

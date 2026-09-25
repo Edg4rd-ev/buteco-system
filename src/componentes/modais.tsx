@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  centavos,
   dinheiro,
   fecharComanda,
   registrarPagamento,
@@ -8,6 +9,7 @@ import {
   type Mesa,
 } from "../lib/api";
 import { SpinnerBotao } from "./Carregando";
+import InputDinheiro from "./InputDinheiro";
 
 /* ------------------------------------------------------------------
    Mesa — cadastrar ou editar mesa do salão (rótulo + ordem). Usado na
@@ -261,7 +263,7 @@ export function ModalConta({
 }) {
   const falta = Math.max(total - pago, 0);
   const [forma, setForma] = useState<FormaPagamento>("pix");
-  const [valor, setValor] = useState(falta.toFixed(2));
+  const [valor, setValor] = useState(() => centavos(falta));
   const [pessoas, setPessoas] = useState(1);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -276,14 +278,13 @@ export function ModalConta({
 
   async function pagar() {
     setErro(null);
-    const v = Number(valor.replace(",", "."));
-    if (!v || v <= 0) return setErro("Informe o valor recebido.");
+    if (valor <= 0) return setErro("Informe o valor recebido.");
 
     setEnviando(true);
     try {
-      await registrarPagamento(comandaId, forma, v);
+      await registrarPagamento(comandaId, forma, valor);
       onMudou();
-      setValor("0");
+      setValor(0);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível registrar.");
     } finally {
@@ -334,16 +335,11 @@ export function ModalConta({
           <button onClick={() => setPessoas(Math.max(1, pessoas - 1))}>−</button>
           <button disabled style={{ opacity: 1 }}>{pessoas}</button>
           <button onClick={() => setPessoas(pessoas + 1)}>+</button>
-          <button onClick={() => setValor((falta / pessoas).toFixed(2))}>usar</button>
+          <button onClick={() => setValor(centavos(falta / pessoas))}>usar</button>
         </div>
 
         <label htmlFor="valor">Valor recebido</label>
-        <input
-          id="valor"
-          inputMode="decimal"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-        />
+        <InputDinheiro id="valor" valor={valor} onChange={setValor} />
 
         <div className="formas">
           {FORMAS.map((f) => (
