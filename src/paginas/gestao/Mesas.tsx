@@ -25,7 +25,7 @@ export default function Mesas() {
   if (carregando) return <Carregando texto="Carregando as mesas…" />;
 
   return (
-    <div className="painel">
+    <div className="painel painel-mesas">
       {erro && <p className="aviso-fila">{erro}</p>}
 
       <div className="acoes">
@@ -39,7 +39,7 @@ export default function Mesas() {
           nunca é apagada de verdade.
         </p>
         {mesas.length === 0 && <p className="dica">Nenhuma mesa cadastrada ainda.</p>}
-        <div className="lista">
+        <div className="lista lista-mesas">
           {mesas.map((m) => (
             <div className="linha-produto" key={m.id} style={{ opacity: m.ativa ? 1 : 0.5 }}>
               <div className="info-produto">

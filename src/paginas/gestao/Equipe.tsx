@@ -54,7 +54,7 @@ export default function Equipe({ perfilAtual }: { perfilAtual: Perfil }) {
   if (carregando) return <Carregando texto="Carregando a equipe…" />;
 
   return (
-    <div className="painel">
+    <div className="painel painel-equipe">
       {erro && <p className="aviso-fila">{erro}</p>}
 
       <MeuPin />
@@ -121,7 +121,7 @@ function MeuPin() {
   }
 
   return (
-    <section className="cartao">
+    <section className="cartao meu-pin">
       <h2>Meu PIN de autorização</h2>
       <p className="dica">Usado para autorizar cancelamento de item lançado por qualquer garçom.</p>
 

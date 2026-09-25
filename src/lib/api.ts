@@ -663,8 +663,17 @@ export async function definirPin(pin: string) {
 
 /* ---------------- formato ---------------- */
 
-export const dinheiro = (v: number) =>
-  "R$ " + (Number(v) || 0).toFixed(2).replace(".", ",");
+const FORMATO_REAL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const FORMATO_VALOR = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** "R$ 1.234,50" — com separador de milhar; negativo sai "-R$ 5,00". */
+export const dinheiro = (v: number) => FORMATO_REAL.format(Number(v) || 0);
+
+/** "1.234,50" — igual a `dinheiro`, sem o "R$" (pra quando o símbolo vem separado). */
+export const valorBr = (v: number) => FORMATO_VALOR.format(Number(v) || 0);
+
+/** Arredonda pra centavos — evita 0.1 + 0.2 virar 0.30000000000000004 num input. */
+export const centavos = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 
 export const semAcento = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

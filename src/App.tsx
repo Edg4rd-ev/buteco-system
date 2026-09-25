@@ -5,7 +5,7 @@ import Login from "./paginas/Login";
 import Salao from "./paginas/Salao";
 import Comanda from "./paginas/Comanda";
 import Gestao from "./paginas/Gestao";
-import Carregando from "./componentes/Carregando";
+import Abertura from "./componentes/Abertura";
 
 function Rotas({ perfil }: { perfil: Perfil }) {
   // key pelo pathname reinicia a animação de entrada a cada troca de tela.
@@ -55,7 +55,7 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (carregando) return <Carregando texto="Carregando…" />;
+  if (carregando) return <Abertura />;
   if (!perfil) return <Login />;
 
   return (
