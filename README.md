@@ -62,6 +62,26 @@ npm install
 npm run dev
 ```
 
+## Usuários da equipe
+
+O dono cadastra a equipe em **Gestão → Equipe** (novo usuário, papel,
+redefinir senha, desativar). Cada um entra digitando só o usuário
+(`carlos`); por trás vira `carlos@buteco.local`, porque o Auth do
+Supabase exige e-mail. Contas antigas entram com o e-mail inteiro ou só
+com a parte antes do `@`.
+
+Criar usuário e mexer na senha de outra pessoa precisam da service role,
+então passam pela Edge Function `supabase/functions/gerir-usuarios`, que
+confere se quem pediu é dono. Pra publicar:
+
+```bash
+npx supabase login
+npx supabase functions deploy gerir-usuarios --project-ref <ref-do-projeto>
+```
+
+E no painel do Supabase, em **Authentication → Sign In / Providers**,
+deixe **"Allow new users to sign up" desligado**: cadastro só pelo dono.
+
 ## Preparando os dados de teste
 
 Ainda não existe tela de gestão, então o primeiro dono e o primeiro turno

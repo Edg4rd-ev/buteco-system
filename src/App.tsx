@@ -42,7 +42,11 @@ export default function App() {
 
     void carregar();
 
-    const { data } = supabase.auth.onAuthStateChange((_evento, sessao) => {
+    const { data } = supabase.auth.onAuthStateChange((evento, sessao) => {
+      // renovar o token (a cada hora) ou trocar a própria senha não muda
+      // quem está logado — recarregar aqui jogava a tela de abertura por
+      // cima de tudo e perdia o que estava aberto
+      if (evento === "TOKEN_REFRESHED" || evento === "USER_UPDATED") return;
       if (!sessao) {
         setPerfil(null);
         setCarregando(false);

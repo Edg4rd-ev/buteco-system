@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, FunctionsHttpError } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -22,6 +22,8 @@ export type Perfil = {
   nome: string;
   papel: Papel;
   ativo: boolean;
+  /** Só vem em buscarEquipe — é o login (ver usuarioDoEmail). */
+  email?: string | null;
 };
 
 export type Categoria = {
@@ -433,7 +435,7 @@ export async function buscarCancelamentosPeriodo(sessaoIds: number[]): Promise<L
 export async function buscarEquipe(): Promise<Perfil[]> {
   const { data, error } = await supabase
     .from("perfis")
-    .select("id, nome, papel, ativo")
+    .select("id, nome, papel, ativo, email")
     .order("nome");
   if (error) throw error;
   return (data ?? []) as Perfil[];
@@ -646,14 +648,73 @@ export async function atualizarMesa(
 
 /* ---------------- gestão: equipe ---------------- */
 
-export async function atualizarPapelPerfil(id: string, papel: Papel) {
-  const { error } = await supabase.from("perfis").update({ papel }).eq("id", id);
-  if (error) throw error;
+/* ---------------- usuários ----------------
+   O Auth do Supabase exige e-mail; o garçom digita só "carlos". Por trás
+   vira carlos@buteco.local. Quem digitar um e-mail inteiro (conta antiga)
+   continua entrando igual. O mesmo domínio está na Edge Function. */
+
+export const DOMINIO_LOGIN = "buteco.local";
+
+export function emailDoUsuario(usuario: string) {
+  const u = usuario.trim().toLowerCase();
+  return u.includes("@") ? u : `${u}@${DOMINIO_LOGIN}`;
 }
 
-export async function atualizarAtivoPerfil(id: string, ativo: boolean) {
-  const { error } = await supabase.from("perfis").update({ ativo }).eq("id", id);
-  if (error) throw error;
+export function usuarioDoEmail(email: string | null | undefined) {
+  if (!email) return "";
+  const sufixo = `@${DOMINIO_LOGIN}`;
+  return email.endsWith(sufixo) ? email.slice(0, -sufixo.length) : email;
+}
+
+/* Criar, redefinir senha de outro e bloquear login precisam da service
+   role — só pela Edge Function gerir-usuarios, que confere se é o dono. */
+async function gerirUsuarios<T>(corpo: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("gerir-usuarios", { body: corpo });
+  if (error) {
+    let mensagem = "Não foi possível falar com o servidor. Tente de novo.";
+    if (error instanceof FunctionsHttpError) {
+      try {
+        const j = (await error.context.json()) as { erro?: string };
+        if (j.erro) mensagem = j.erro;
+      } catch {
+        /* resposta sem corpo: fica a mensagem genérica */
+      }
+    }
+    throw new Error(mensagem);
+  }
+  return data as T;
+}
+
+export const criarUsuario = (dados: { usuario: string; nome: string; senha: string; papel: Papel }) =>
+  gerirUsuarios<{ id: string }>({ acao: "criar", ...dados });
+
+export const redefinirSenhaUsuario = (id: string, senha: string) =>
+  gerirUsuarios<{ ok: true }>({ acao: "redefinir_senha", id, senha });
+
+export const atualizarUsuario = (id: string, dados: { nome?: string; papel?: Papel; ativo?: boolean }) =>
+  gerirUsuarios<{ ok: true }>({ acao: "atualizar", id, ...dados });
+
+/** Troca a própria senha, conferindo a atual antes. */
+export async function trocarMinhaSenha(atual: string, nova: string) {
+  const { data } = await supabase.auth.getUser();
+  const email = data.user?.email;
+  if (!email) throw new Error("Sessão expirada. Entre de novo.");
+
+  // confere a senha atual num cliente descartável: logar de novo no
+  // cliente principal dispararia onAuthStateChange e recarregaria o app
+  const conferencia = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, storageKey: "conferencia-senha" },
+  });
+  const { error: erroAtual } = await conferencia.auth.signInWithPassword({ email, password: atual });
+  if (erroAtual) throw new Error("A senha atual não confere.");
+  await conferencia.auth.signOut({ scope: "local" });
+
+  const { error } = await supabase.auth.updateUser({ password: nova });
+  if (error) {
+    if (/different from the old/i.test(error.message)) throw new Error("A senha nova precisa ser diferente da atual.");
+    if (/at least/i.test(error.message)) throw new Error("A senha precisa de pelo menos 6 caracteres.");
+    throw new Error("Não foi possível trocar a senha.");
+  }
 }
 
 export async function definirPin(pin: string) {
