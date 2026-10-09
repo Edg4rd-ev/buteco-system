@@ -155,16 +155,29 @@ main{padding-bottom:104px}
 .linha .v{font-family:Oswald,sans-serif;font-variant-numeric:tabular-nums}
 .linha .v button.editar-inline{background:none;border:0;padding:0;margin-left:6px;
   font-family:Karla,sans-serif;font-size:12.5px;text-decoration:underline;color:var(--dourado)}
-/* conta: marcar o que quem sai mais cedo vai pagar */
-.linha-conta{align-items:center}
-.linha-conta .nome-linha{flex:1;min-width:0}
-.linha-conta .pago{margin-left:8px;padding:1px 6px;border-radius:6px;font-size:11.5px;
-  background:rgba(42,36,29,.1);color:var(--tinta-fraca)}
+/* modal com topo e rodapé parados: só o meio rola */
+.caixa.caixa-fixa{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.caixa-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px 10px;border-bottom:1px solid rgba(42,36,29,.12)}
+.caixa-topo .fechar{position:static;margin-right:-8px}
+.caixa-corpo{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px 18px 16px}
+.caixa-rodape{padding:10px 18px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(42,36,29,.12);background:var(--papel)}
+.caixa-rodape .erro{margin:0 0 8px}
+.caixa-rodape .acoes{margin-top:0}
+
+/* conta: colunas fixas (nome | marcador | valor) pra tudo alinhar,
+   não importa o tamanho do nome do item */
+.linha-conta{display:grid;grid-template-columns:minmax(0,1fr) 96px 84px;align-items:center;gap:8px}
+.linha-conta .nome-linha{min-width:0;overflow-wrap:anywhere}
+.linha-conta .v{text-align:right}
+.linha-conta .pago{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:6px;font-size:11.5px;
+  background:rgba(42,36,29,.1);color:var(--tinta-fraca);white-space:nowrap}
 .linha-conta.marcada{background:rgba(240,180,41,.16);margin:0 -8px;padding-left:8px;padding-right:8px}
-.selecao{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-.selecao button{width:32px;height:32px;border-radius:8px;border:1px solid rgba(42,36,29,.25);font-size:16px}
+.selecao{display:flex;align-items:center;justify-content:center;gap:4px}
+.selecao button{width:30px;height:30px;border-radius:8px;border:1px solid rgba(42,36,29,.25);font-size:16px}
 .selecao button:disabled{opacity:.35}
-.selecao b{min-width:16px;text-align:center;font-family:Oswald,sans-serif;font-weight:500}
+.selecao b{min-width:20px;text-align:center;font-family:Oswald,sans-serif;font-weight:500}
 .soma{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 2px;
   font-family:Oswald,sans-serif;font-size:25px}
 .formas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
@@ -289,6 +302,9 @@ main{padding-bottom:104px}
   .modal{display:grid;place-items:center;padding:24px}
   .caixa{position:relative;inset:auto;width:min(480px,100%);max-height:86vh;border-radius:16px;
     padding:26px 24px}
+  .caixa-topo{padding:20px 24px 12px}
+  .caixa-corpo{padding:14px 24px 18px}
+  .caixa-rodape{padding:12px 24px 18px}
 
   /* caixa: turno e sangria à esquerda, fechamento à direita */
   .painel-caixa{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}

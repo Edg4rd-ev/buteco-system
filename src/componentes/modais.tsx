@@ -376,109 +376,124 @@ export function ModalConta({
   return (
     <div className="modal" role="dialog" aria-modal="true">
       <div className="fundo" onClick={onFechar} />
-      <div className="caixa">
-        <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
-        <h3>Conta da mesa</h3>
-        <p className="dica">
-          Não cobramos 10% · pagamento pode ser parcial. Quem sai antes: use o + pra marcar o que
-          a pessoa consumiu, ou só digite o valor.
-        </p>
+      {/* topo (título + ×) e rodapé (pagar/encerrar) ficam parados; só o
+          meio rola — mesa com muito item não esconde os botões */}
+      <div className="caixa caixa-fixa">
+        <div className="caixa-topo">
+          <h3>Conta da mesa</h3>
+          <button className="fechar" onClick={onFechar} aria-label="Fechar">×</button>
+        </div>
 
-        {[...grupos.values()].map((g) => {
-          const n = selecao[g.chave] ?? 0;
-          const qSel = g.abertos.slice(0, n).reduce((s, l) => s + l.quantidade, 0);
-          return (
-            <div className={"linha linha-conta" + (n > 0 ? " marcada" : "")} key={g.chave}>
-              <span className="nome-linha">
-                <span className="q">{g.q}×</span>{g.nome}
-                {g.qPago > 0 && <span className="pago">{g.qPago} pago</span>}
-              </span>
-              {g.abertos.length > 0 && (
-                <span className="selecao">
-                  <button onClick={() => mudarGrupo(g.chave, g.abertos.length, -1)} disabled={n === 0}
-                    aria-label={`Desmarcar um ${g.nome}`}>−</button>
-                  <b>{qSel}</b>
-                  <button onClick={() => mudarGrupo(g.chave, g.abertos.length, 1)} disabled={n >= g.abertos.length}
-                    aria-label={`Marcar um ${g.nome} pra pagar`}>+</button>
+        <div className="caixa-corpo">
+          <p className="dica">
+            Não cobramos 10% · pagamento pode ser parcial. Quem sai antes: use o + pra marcar o que
+            a pessoa consumiu, ou só digite o valor.
+          </p>
+
+          {[...grupos.values()].map((g) => {
+            const n = selecao[g.chave] ?? 0;
+            const qSel = g.abertos.slice(0, n).reduce((s, l) => s + l.quantidade, 0);
+            return (
+              <div className={"linha linha-conta" + (n > 0 ? " marcada" : "")} key={g.chave}>
+                <span className="nome-linha">
+                  <span className="q">{g.q}×</span>{g.nome}
+                  {g.qPago > 0 && <span className="pago">{g.qPago} pago</span>}
                 </span>
-              )}
-              <span className="v">{dinheiro(g.q * g.preco)}</span>
-            </div>
-          );
-        })}
-        {couvert > 0 && (
-          <div className={"linha linha-conta" + (couvertsSel > 0 ? " marcada" : "")}>
-            <span className="nome-linha">
-              <span className="q">{pessoasMesa}×</span>Couvert
-              {couvertsPagos > 0 && <span className="pago">{couvertsPagos} pago</span>}
-            </span>
-            {couvertsAbertos > 0 && (
-              <span className="selecao">
-                <button onClick={() => mudarSelecao(selecao, couvertsSel - 1)} disabled={couvertsSel === 0}
-                  aria-label="Desmarcar um couvert">−</button>
-                <b>{couvertsSel}</b>
-                <button onClick={() => mudarSelecao(selecao, couvertsSel + 1)}
-                  disabled={couvertsSel >= couvertsAbertos} aria-label="Marcar um couvert pra pagar">+</button>
+                {/* coluna do marcador existe sempre (vazia se tudo pago) pra
+                    os valores não saírem do alinhamento */}
+                <span className="selecao">
+                  {g.abertos.length > 0 && (
+                    <>
+                      <button onClick={() => mudarGrupo(g.chave, g.abertos.length, -1)} disabled={n === 0}
+                        aria-label={`Desmarcar um ${g.nome}`}>−</button>
+                      <b>{qSel}</b>
+                      <button onClick={() => mudarGrupo(g.chave, g.abertos.length, 1)} disabled={n >= g.abertos.length}
+                        aria-label={`Marcar um ${g.nome} pra pagar`}>+</button>
+                    </>
+                  )}
+                </span>
+                <span className="v">{dinheiro(g.q * g.preco)}</span>
+              </div>
+            );
+          })}
+          {couvert > 0 && (
+            <div className={"linha linha-conta" + (couvertsSel > 0 ? " marcada" : "")}>
+              <span className="nome-linha">
+                <span className="q">{pessoasMesa}×</span>Couvert
+                {couvertsPagos > 0 && <span className="pago">{couvertsPagos} pago</span>}
               </span>
-            )}
-            <span className="v">{dinheiro(couvert)}</span>
-          </div>
-        )}
-        {temSelecao && (
-          <div className="soma" style={{ fontSize: 18, color: "var(--madeira)" }}>
-            <span>Marcado</span><span className="num">{dinheiro(somaSel)}</span>
-          </div>
-        )}
+              <span className="selecao">
+                {couvertsAbertos > 0 && (
+                  <>
+                    <button onClick={() => mudarSelecao(selecao, couvertsSel - 1)} disabled={couvertsSel === 0}
+                      aria-label="Desmarcar um couvert">−</button>
+                    <b>{couvertsSel}</b>
+                    <button onClick={() => mudarSelecao(selecao, couvertsSel + 1)}
+                      disabled={couvertsSel >= couvertsAbertos} aria-label="Marcar um couvert pra pagar">+</button>
+                  </>
+                )}
+              </span>
+              <span className="v">{dinheiro(couvert)}</span>
+            </div>
+          )}
+          {temSelecao && (
+            <div className="soma" style={{ fontSize: 18, color: "var(--madeira)" }}>
+              <span>Marcado</span><span className="num">{dinheiro(somaSel)}</span>
+            </div>
+          )}
 
-        <div className="soma"><span>Total</span><span className="num">{dinheiro(total)}</span></div>
-        {pago > 0 && (
-          <div className="soma" style={{ fontSize: 18, color: "var(--tinta-fraca)" }}>
-            <span>Já pago</span><span className="num">{dinheiro(pago)}</span>
+          <div className="soma"><span>Total</span><span className="num">{dinheiro(total)}</span></div>
+          {pago > 0 && (
+            <div className="soma" style={{ fontSize: 18, color: "var(--tinta-fraca)" }}>
+              <span>Já pago</span><span className="num">{dinheiro(pago)}</span>
+            </div>
+          )}
+          <div className="soma" style={{ fontSize: 20, color: "var(--madeira)" }}>
+            <span>Falta</span><span className="num">{dinheiro(falta)}</span>
           </div>
-        )}
-        <div className="soma" style={{ fontSize: 20, color: "var(--madeira)" }}>
-          <span>Falta</span><span className="num">{dinheiro(falta)}</span>
+
+          <label>Dividir por {pessoas} → {dinheiro(falta / pessoas)} cada</label>
+          <div className="formas">
+            <button onClick={() => setPessoas(Math.max(1, pessoas - 1))}>−</button>
+            <button disabled style={{ opacity: 1 }}>{pessoas}</button>
+            <button onClick={() => setPessoas(pessoas + 1)}>+</button>
+            <button onClick={() => setValor(centavos(falta / pessoas))}>usar</button>
+          </div>
+
+          <label htmlFor="valor">Valor recebido</label>
+          <InputDinheiro id="valor" valor={valor} onChange={setValor} />
+
+          <div className="formas">
+            {FORMAS.map((f) => (
+              <button
+                key={f.id}
+                aria-pressed={forma === f.id}
+                onClick={() => setForma(f.id)}
+              >
+                {f.rotulo}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <label>Dividir por {pessoas} → {dinheiro(falta / pessoas)} cada</label>
-        <div className="formas">
-          <button onClick={() => setPessoas(Math.max(1, pessoas - 1))}>−</button>
-          <button disabled style={{ opacity: 1 }}>{pessoas}</button>
-          <button onClick={() => setPessoas(pessoas + 1)}>+</button>
-          <button onClick={() => setValor(centavos(falta / pessoas))}>usar</button>
-        </div>
+        <div className="caixa-rodape">
+          {erro && <p className="erro">{erro}</p>}
 
-        <label htmlFor="valor">Valor recebido</label>
-        <InputDinheiro id="valor" valor={valor} onChange={setValor} />
-
-        <div className="formas">
-          {FORMAS.map((f) => (
-            <button
-              key={f.id}
-              aria-pressed={forma === f.id}
-              onClick={() => setForma(f.id)}
-            >
-              {f.rotulo}
+          <div className="acoes">
+            <button className="secundario" onClick={pagar} disabled={enviando}>
+              {enviando && <SpinnerBotao />}
+              Registrar pagamento
             </button>
-          ))}
-        </div>
-
-        {erro && <p className="erro">{erro}</p>}
-
-        <div className="acoes">
-          <button className="secundario" onClick={pagar} disabled={enviando}>
-            {enviando && <SpinnerBotao />}
-            Registrar pagamento
-          </button>
-          <button
-            className="principal"
-            onClick={encerrar}
-            disabled={enviando || falta > 0.009}
-            title={falta > 0.009 ? "Registre o pagamento do valor que falta antes de encerrar" : undefined}
-          >
-            {enviando && <SpinnerBotao />}
-            Encerrar mesa
-          </button>
+            <button
+              className="principal"
+              onClick={encerrar}
+              disabled={enviando || falta > 0.009}
+              title={falta > 0.009 ? "Registre o pagamento do valor que falta antes de encerrar" : undefined}
+            >
+              {enviando && <SpinnerBotao />}
+              Encerrar mesa
+            </button>
+          </div>
         </div>
       </div>
     </div>
