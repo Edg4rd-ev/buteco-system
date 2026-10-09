@@ -72,6 +72,8 @@ export type ComandaInfo = {
   status: "aberta" | "fechada";
   apelido: string | null;
   aberta_em: string;
+  pessoas: number;
+  couvert_por_pessoa: number;
 };
 
 export type Lancamento = {
@@ -181,7 +183,7 @@ export async function buscarSalao(): Promise<MesaSalao[]> {
 export async function buscarComandaAbertaDaMesa(mesaId: number): Promise<ComandaInfo | null> {
   const { data, error } = await supabase
     .from("comandas")
-    .select("id, mesa_id, status, apelido, aberta_em")
+    .select("id, mesa_id, status, apelido, aberta_em, pessoas, couvert_por_pessoa")
     .eq("mesa_id", mesaId)
     .eq("status", "aberta")
     .maybeSingle();
@@ -493,8 +495,52 @@ export async function registrarPagamento(
   return Number(data);
 }
 
+/** Pagamento de itens escolhidos: quem sai mais cedo paga o que consumiu.
+ *  Os itens ficam marcados como pagos (não saem da comanda). O valor é o
+ *  que a pessoa entregou — pode diferir da soma dos itens. */
+export async function registrarPagamentoItens(args: {
+  comandaId: number;
+  forma: FormaPagamento;
+  valor: number;
+  lancamentos: string[];
+  couvertPessoas: number;
+}): Promise<number> {
+  const { data, error } = await supabase.rpc("registrar_pagamento_itens", {
+    p_comanda: args.comandaId,
+    p_forma: args.forma,
+    p_valor: args.valor,
+    p_lancamentos: args.lancamentos,
+    p_couvert_pessoas: args.couvertPessoas,
+  });
+  if (error) throw error;
+  return Number(data);
+}
+
 export async function fecharComanda(comandaId: number) {
   const { error } = await supabase.rpc("fechar_comanda", { p_comanda: comandaId });
+  if (error) throw error;
+}
+
+/** Mesa aberta sem nada lançado nem pago — fecha mesmo com couvert,
+ *  que é de gente que não chegou a ficar. */
+export async function cancelarAberturaComanda(comandaId: number) {
+  const { error } = await supabase.rpc("cancelar_abertura_comanda", { p_comanda: comandaId });
+  if (error) throw error;
+}
+
+/** Couvert é por cabeça: o garçom ajusta conforme o pessoal chega/sai.
+ *  Aumentar é livre; diminuir exige motivo + PIN do dono/gerente. */
+export async function alterarPessoasComanda(
+  comandaId: number,
+  pessoas: number,
+  autorizacao?: { motivo: string; pin: string },
+) {
+  const { error } = await supabase.rpc("alterar_pessoas_comanda", {
+    p_comanda: comandaId,
+    p_pessoas: pessoas,
+    p_motivo: autorizacao?.motivo ?? null,
+    p_pin: autorizacao?.pin ?? null,
+  });
   if (error) throw error;
 }
 

@@ -155,6 +155,16 @@ main{padding-bottom:104px}
 .linha .v{font-family:Oswald,sans-serif;font-variant-numeric:tabular-nums}
 .linha .v button.editar-inline{background:none;border:0;padding:0;margin-left:6px;
   font-family:Karla,sans-serif;font-size:12.5px;text-decoration:underline;color:var(--dourado)}
+/* conta: marcar o que quem sai mais cedo vai pagar */
+.linha-conta{align-items:center}
+.linha-conta .nome-linha{flex:1;min-width:0}
+.linha-conta .pago{margin-left:8px;padding:1px 6px;border-radius:6px;font-size:11.5px;
+  background:rgba(42,36,29,.1);color:var(--tinta-fraca)}
+.linha-conta.marcada{background:rgba(240,180,41,.16);margin:0 -8px;padding-left:8px;padding-right:8px}
+.selecao{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.selecao button{width:32px;height:32px;border-radius:8px;border:1px solid rgba(42,36,29,.25);font-size:16px}
+.selecao button:disabled{opacity:.35}
+.selecao b{min-width:16px;text-align:center;font-family:Oswald,sans-serif;font-weight:500}
 .soma{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 2px;
   font-family:Oswald,sans-serif;font-size:25px}
 .formas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
